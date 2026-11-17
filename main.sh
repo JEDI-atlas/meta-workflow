@@ -130,15 +130,21 @@ done < $add_projects
 
 sbatch scripts/run_fetchngs.sh ${add_projects}
 
+#Re-run fetchngs with option -resume for projects that had en error 
+FILE=tmp/resume_fetchngs.tsv
+
+if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
+  sbatch scripts/resume_fetchngs.sh 
+fi
 
 ########################################################
-# Run ampliseq
+# Run nf-core ampliseq
 ########################################################
 
 sbatch scripts/run_ampliseq.sh ${add_projects}
 
 #Re-run ampliseq with option -resume for projects that had en error 
-FILE=tmp/ampliseq_projectsTOresume.tsv
+FILE=tmp/resume_ampliseq.tsv
 
 if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
   sbatch scripts/resume_ampliseq.sh 
@@ -147,6 +153,7 @@ fi
 ########################################################
 # Agregate ampliseq outputs per projects
 ########################################################
+
 [ ! -d "output/agregated" ] && mkdir output/agregated
 
 sbatch scripts/agregate_ampliseq_outputs.sh
