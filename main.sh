@@ -33,7 +33,7 @@ usage() {
 
 #Default values
 export="none"
-add_projects="tmp/projects_files_list.txt"
+add_projects="tmp/studies_list.txt"
 
 while getopts ":ha:e:" OPTION
 do
@@ -43,7 +43,7 @@ do
     usage
     exit 0
     ;;
-  a) #Added fetchngs project samplesheet(s) and want to run only those
+  a) #Added studies list to run only these
     add_projects=$OPTARG
     ;;
   e) #Export taxonomy and/or domain conflicts tables
@@ -65,39 +65,86 @@ done
 
 #Preparation
 [ ! -d "tmp" ] && mkdir tmp
+[ ! -d "output" ] && mkdir output
 
 export add_projects="$add_projects"
 export export="$export"
+
+
+
+########################################################
+# Gets the list of all studies, if none given
+########################################################
+
+if [ $add_projects != "tmp/studies_list.txt" ] ; then
+
+  if [ -f $add_projects ]; then
+
+    echo "Running fetchngs only for the project(s) listed in the file ${add_projects}:"
+    cat ${add_projects}
+
+  else
+
+    echo "$add_projects file doesn't exist"
+    exit 0
+
+  fi
+
+else
+  
+  echo "Running fetchngs for every study that has (at least one) samplesheet in input/<STUDY>"
+  ls input | grep "-" | sort > tmp/studies_list.txt #need to have a dash "-" in the names of the studies
+  echo "The file tmp/studies_list.txt was created."
+
+fi
+
+
+########################################################
+# Make the input samplesheets of the jedi workflow - one per group inside each study
+########################################################
+
+while IFS= read -r study; do
+
+  nb_group=$(ls input/${study}/params_ampliseq_*.yaml | wc -l)
+
+  if [[ $nb_group -gt 1 ]]; then 
+
+    for ((i = 1; i <= nb_group; i++)); do
+      awk -v gr="$i" -F '\t' '
+        $14 ~ gr { print $4 }' "input/${study}/ena_run_metadata_group.tsv" > "input/${study}/samplesheet_G${i}.tsv"
+    done 
+
+  elif [[ $nb_group -eq 1 ]]; then
+
+    awk 'NR>1 {print $4}' "input/${study}/ena_run_metadata_group.tsv" > "input/${study}/samplesheet.tsv"
+
+  fi
+
+done < $add_projects
+
+
 
 ########################################################
 #Run nf-core-fetchngs
 ########################################################
 
-if [ -f $add_projects ] ; then #if an existing file is given to option -a
-  echo "Running fetchngs only for the project(s) listed in the file ${add_projects}:"
-  cat ${add_projects}
-else
-  #Gets the list of projects (samplesheet) (can be any type of ID supported by fetchngs) and lists them in a file
-  echo "Running fetchngs for every project that has a samplesheet in input/fetchngs/samplesheet"
-  ls input/fetchngs/samplesheet | \
-    grep -E "^\S+\.(csv|tsv|txt)$" | \
-    grep -E "PRJ|SRR|SRX|SRS|SAM|SRP|SRA|ERR|ERX|ERS|ERP|ERA|DRR|DRX|DRS|DRP|DRA|GSM|GSE" | sort \
-    > tmp/projects_files_list.txt
-
-  echo "The file tmp/projects_files_list.txt was created."
-fi
-
-
 sbatch scripts/run_fetchngs.sh ${add_projects}
 
+#Re-run fetchngs with option -resume for projects that had en error 
+FILE=tmp/resume_fetchngs.tsv
+
+if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
+  sbatch scripts/resume_fetchngs.sh 
+fi
+
 ########################################################
-# Run ampliseq
+# Run nf-core ampliseq
 ########################################################
 
 sbatch scripts/run_ampliseq.sh ${add_projects}
 
 #Re-run ampliseq with option -resume for projects that had en error 
-FILE=tmp/ampliseq_projectsTOresume.tsv
+FILE=tmp/resume_ampliseq.tsv
 
 if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
   sbatch scripts/resume_ampliseq.sh 
@@ -106,6 +153,7 @@ fi
 ########################################################
 # Agregate ampliseq outputs per projects
 ########################################################
+
 [ ! -d "output/agregated" ] && mkdir output/agregated
 
 sbatch scripts/agregate_ampliseq_outputs.sh
