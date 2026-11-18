@@ -107,18 +107,10 @@ while IFS= read -r study; do
 
   nb_group=$(ls input/${study}/params_ampliseq_*.yaml | wc -l)
 
-  if [[ $nb_group -gt 1 ]]; then 
-
-    for ((i = 1; i <= nb_group; i++)); do
-      awk -v gr="$i" -F '\t' '
-        $14 ~ gr { print $4 }' "input/${study}/ena_run_metadata_group.tsv" > "input/${study}/samplesheet_G${i}.tsv"
-    done 
-
-  elif [[ $nb_group -eq 1 ]]; then
-
-    awk 'NR>1 {print $4}' "input/${study}/ena_run_metadata_group.tsv" > "input/${study}/samplesheet.tsv"
-
-  fi
+  for ((i = 1; i <= nb_group; i++)); do
+    awk -v gr="$i" -F '\t' '
+    $14 ~ gr { print $4 }' "input/${study}/ena_run_metadata_group.tsv" > "input/${study}/samplesheet_G${i}.tsv"
+  done 
 
 done < $add_studies
 

@@ -20,61 +20,11 @@ module load singularity
 
 while IFS= read -r study; do
 
-  
   nb_group=$(ls input/${study}/samplesheet* | wc -l)
   
-  # At least 2 groups for the study
-  if [[ $nb_group -gt 1 ]]; then
+  for ((i = 1; i <= nb_group; i++)); do
 
-    for ((i = 1; i <= nb_group; i++)); do
-
-      INPUT_FILE=./output/fetchngs/${study}/Group_${i}/samplesheet/samplesheet.csv
-
-      if [[ -f "$INPUT_FILE" &&  $(wc -l < "$INPUT_FILE") -gt 1 ]]; then
-
-        echo "$INPUT_FILE exists and is not empty."
-        DIR=output/ampliseq/${study}
-
-        if [ -d "$DIR" ]; then
-          echo "$DIR already exists. Not running ampliseq for the study ${study}."
-
-        else
-          echo "$DIR directory does not exist. Running ampliseq for every groups of the study ${study}."
-
-          nextflow run nf-core/ampliseq -r 3.0.0 \
-            -profile abims \
-            -c input/param.config \
-            -params-file ./input/${study}/params_ampliseq_G${i}.yaml \
-            --input ${INPUT_FILE} \
-            --outdir ./output/ampliseq/${study}/Group_${i}
-
-
-          # Error check and generation of a resume samplesheet for ampliseq
-          
-          last_line=$(tail -n 1 .nextflow/history)
-          status=$(echo "${last_line}" | cut -f4)
-
-          if [[ $status == "ERR" ]] && echo "$last_line" | grep -q "${study}"; then
-
-            RUN_NAME=$(echo "${last_line}" | cut -f3)
-            echo "ampliseq run on the group ${i} of the study ${study} failed. It will be resumed -resume ${RUN_NAME} (run name)."
-            echo -e "${study}\t${RUN_NAME}\t${i}" >> tmp/resume_ampliseq.tsv
-
-          fi
-
-        fi
-
-      else
-        echo "$INPUT_FILE does not exist or is empty. Run fetchngs for ${study} first."
-
-      fi
-
-    done
-
-  # Only one group for the study
-  elif [[ $nb_group -eq 1 ]]; then
-
-    INPUT_FILE=./output/fetchngs/${study}/samplesheet/samplesheet.csv
+    INPUT_FILE=./output/fetchngs/${study}/Group_${i}/samplesheet/samplesheet.csv
 
     if [[ -f "$INPUT_FILE" &&  $(wc -l < "$INPUT_FILE") -gt 1 ]]; then
 
@@ -85,14 +35,14 @@ while IFS= read -r study; do
         echo "$DIR already exists. Not running ampliseq for the study ${study}."
 
       else
-        echo "$DIR directory does not exist. Running ampliseq for the study ${study} (no groups)."
+        echo "$DIR directory does not exist. Running ampliseq for every groups of the study ${study}."
 
         nextflow run nf-core/ampliseq -r 3.0.0 \
           -profile abims \
           -c input/param.config \
-          -params-file ./input/${study}/params_ampliseq_G1.yaml \
+          -params-file ./input/${study}/params_ampliseq_G${i}.yaml \
           --input ${INPUT_FILE} \
-          --outdir ./output/ampliseq/${study}
+          --outdir ./output/ampliseq/${study}/Group_${i}
 
 
         # Error check and generation of a resume samplesheet for ampliseq
@@ -103,8 +53,8 @@ while IFS= read -r study; do
         if [[ $status == "ERR" ]] && echo "$last_line" | grep -q "${study}"; then
 
           RUN_NAME=$(echo "${last_line}" | cut -f3)
-          echo "ampliseq run on the study ${study} failed. It will be resumed -resume ${RUN_NAME} (run name)."
-          echo -e "${study}\t${RUN_NAME}\t0" >> tmp/resume_ampliseq.tsv
+          echo "ampliseq run on the group ${i} of the study ${study} failed. It will be resumed -resume ${RUN_NAME} (run name)."
+          echo -e "${study}\t${RUN_NAME}\t${i}" >> tmp/resume_ampliseq.tsv
 
         fi
 
@@ -115,7 +65,7 @@ while IFS= read -r study; do
 
     fi
 
-  fi
+  done
 
 done < $1
 
