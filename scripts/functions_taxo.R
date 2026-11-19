@@ -2,29 +2,14 @@
 
 
 # SILVA confidence scores ----
-# Set confidence to NA when it's not the real value given
-
-manage_silva_confidences <- function(silva_taxonomy_table, taxo_ranks){
-  for (r in taxo_ranks) {
-    col_taxo <- r
-    col_conf <- paste0(tolower(r), "_confidence")
-    silva_taxonomy_table <- silva_taxonomy_table |> 
-      mutate(
-        !!sym(col_conf) := ifelse(
-          is.na(.data[[col_taxo]]) & .data[[col_conf]] > 0.5, 
-          NA, 
-          .data[[col_conf]]
-        )
-      )
-  }
-  return(silva_taxonomy_table)
-}
+# see older commit
+# sometimes NA in taxonomic level but corresponding confidence >0.8 ?????
 
 
 #Table formatting ----
 
 format_taxo_table_pr2 <- function(refDB_project_taxo) {
-    refDB_project_taxo |> 
+  refDB_project_taxo |> 
     unite(col=pr2_dada2_taxonomy, Domain:Species, sep=";") |>
     unite(col=pr2_dada2_allConfidences, domain_confidence:species_confidence, sep=";") |> 
     select(ASV_ID, pr2_dada2_taxonomy, confidence, pr2_dada2_allConfidences) |> 
@@ -32,12 +17,13 @@ format_taxo_table_pr2 <- function(refDB_project_taxo) {
 }
 
 format_taxo_table_silva <- function(refDB_project_taxo) {
-    refDB_project_taxo |> 
+  refDB_project_taxo |> 
     unite(col=silva_dada2_taxonomy, Domain:Species, sep=";") |>
     unite(col=silva_dada2_allConfidences, domain_confidence:species_confidence, sep=";") |> 
     select(ASV_ID, silva_dada2_taxonomy, confidence, silva_dada2_allConfidences) |> 
     rename(silva_dada2_confidence=confidence)
 }
+
 
 
 ## Get conflict info on the domain level ----
@@ -46,7 +32,6 @@ domain_conflict <- function(pr2_silva_joined_taxonomy_table){
   pr2_silva_joined_taxonomy_table |>
     mutate(pr2_dada2_taxonomy_domain = str_extract(pr2_dada2_taxonomy, "^[^;]+")) |> 
     mutate(silva_dada2_taxonomy_domain = str_extract(silva_dada2_taxonomy, "^[^;]+")) |> 
-    select(ASV_ID, pr2_dada2_taxonomy_domain, silva_dada2_taxonomy_domain, silva_dada2_taxonomy) |> 
     filter(pr2_dada2_taxonomy_domain != silva_dada2_taxonomy_domain) |> 
     filter(
       !(pr2_dada2_taxonomy_domain=="Eukaryota:mito" & str_detect(silva_dada2_taxonomy, "Mitochondria")),
@@ -54,7 +39,8 @@ domain_conflict <- function(pr2_silva_joined_taxonomy_table){
       pr2_dada2_taxonomy_domain!="Eukaryota:nucl",
       pr2_dada2_taxonomy_domain!="NA",
       silva_dada2_taxonomy_domain!="NA"
-    )
+    ) |> 
+    select(ASV_ID, pr2_dada2_taxonomy_domain, silva_dada2_taxonomy_domain, pr2_dada2_taxonomy, silva_dada2_taxonomy)
   }
 
 

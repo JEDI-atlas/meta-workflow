@@ -15,7 +15,7 @@ Help() {
                 Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs
                 than added some samplesheet for projects you also want to run (without running the other ones again)."
   echo "-e    Chose whether to export pr2, silva and consensus taxonomies (pr2_silva_consensus.tsv) and domain conflicts
-              (domain_conflicts) tables (one per project). Either joined, conflicts or both. Default is none."
+              (domain_conflicts) tables (one per project). Either consensus, conflicts or both. Default is none."
 }
 
 
@@ -23,7 +23,7 @@ Help() {
 # Usage function
 ############################################################
 usage() {
-  echo "Usage: $0 -a <tmp/add_new_projects.txt> -e <joined;conflicts;both> [-h for help]"
+  echo "Usage: $0 -a <tmp/add_new_projects.txt> -e <consensus;conflicts;both> [-h for help]"
 }
 
 
