@@ -51,6 +51,22 @@ find ./output/ampliseq/*/* -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=
   > output/agregated/overall_summary.tsv
 
 
+########################################################
+# Taxonomy
+########################################################
+
+if [[ $export == "consensus" || $export == "both" ]]; then
+
+  module load r/4.5.2
+
+  sbatch \
+    #--mem 20GB \
+    --wrap="Rscript scripts/agregate_taxo.R"
+    
+else
+  echo "Use -e "consensus" (or "both") to have the table of agregated consensus taxonomy for all the studies."
+
+fi
 
 ########################################################
 # Metadata

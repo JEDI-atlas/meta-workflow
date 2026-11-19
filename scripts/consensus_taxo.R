@@ -4,25 +4,25 @@
 ############################################################################################
 # This script is part of the jedi meta-workflow, it generates and exports taxonomic tables.
 # Usage: Rscript scripts/consensus_taxo.R -e <export_option>
-
+#
 # Input:
 # Reads in the output of ampliseq/dada2
-
+#
 # Outputs:
 # Its outputs are given for each study, regrouping its eventual groups, in output/out_per_project/taxonomy
-
+#
 # Consensus
 # <STUDY>_pr2_silva_consensus.tsv:
 # dada2 assignated taxonomy: with pr2, silva and a consensus (either pr2 and silva depending on the ASV)
 # The consensus confidence refers to the most precise taxonomic level kept
 # rows: ASVs, columns, pr2, silva and consensus taxonomies and confidences, consensus database
-
+#
 # Domain conflicts
 # <STUDY>_domain_conflicts.tsv
 # the conflicts on the domain level: ASVs for which pr2 and silva led to different assignation with dada2
 # rows: ASVs, columns: pr2 domain, silva domain (and the associated full taxonomy)
-
-
+#
+#
 # The export option (-e) allows to chose which tables will be exported
 # The arguments are either "consensus" (consensus table), "conflicts" (domain conflicts table) or "both" (both tables).
 # Default is "none" (the script doesn't run).
