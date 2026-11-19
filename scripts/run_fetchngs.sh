@@ -11,28 +11,49 @@ module load nextflow/26.04.4
 module load singularity
 
 
-#Check if output/fetchngs/$project exists and run fetchngs if not
-#for all projects listed automatically in tmp/projects_files_list.txt or manually in $add_projects
-while IFS= read -r project_file; do
-  project="${project_file%.*}"
-  DIR=output/fetchngs/$project
+# Run for all the studies in the input folder or for the studies listed in -a (option of main.sh) if applicable
+
+[ ! -d "output/fetchngs" ] && mkdir output/fetchngs
+
+
+while IFS= read -r study; do
+
+  DIR="output/fetchngs/${study}"
 
   if [ -d "$DIR" ]; then
-    echo "$DIR exists."
-  else
-    echo "$DIR directory does not exist. Running fetchngs for ${project} project."
-    nextflow run nf-core/fetchngs -r 1.13.0 \
-      -profile abims \
-      -params-file ./input/fetchngs/params_fetchngs.yaml \
-      --input ./input/fetchngs/samplesheet/${project_file} \
-      --outdir ./output/fetchngs/${project}
 
-    last_line=$(tail -n 1 .nextflow/history)
-    status=$(echo "${last_line}" | cut -f4)
-    if [[ $status == "ERR" ]] && echo "$last_line" | grep -q "${project}"; then
-      RUN_NAME=$(echo "${last_line}" | cut -f3)
-      echo "fetchngs run on the project ${project} failed. Correct the script and run again with -resume ${RUN_NAME} (run name)."
-    fi
+    echo "$DIR already exists."
+
+  else
+
+    echo "$DIR directory does not exist. Running fetchngs for the study ${study} or for its groups if applicable."
+
+    nb_group=$(ls input/${study}/samplesheet* | wc -l)
+
+    for ((i = 1; i <= nb_group; i++)); do
+
+      nextflow run nf-core/fetchngs -r 1.13.0 \
+        -profile abims \
+        -c input/param.config \
+        -params-file ./input/params_fetchngs.yaml \
+        --input ./input/${study}/samplesheet_G${i}.tsv \
+        --outdir ./output/fetchngs/${study}/Group_${i}
+
+      # Error check
+
+      last_line=$(tail -n 1 .nextflow/history)
+      status=$(echo "${last_line}" | cut -f4)
+
+      if [[ $status == "ERR" ]] && echo "$last_line" | grep -q "${study}"; then
+
+        RUN_NAME=$(echo "${last_line}" | cut -f3)
+        echo "fetchngs run on the project ${study} failed. Correct the script and run again with -resume ${RUN_NAME} (run name)."
+        echo -e "${study}\t${RUN_NAME}\t${i}" >> tmp/resume_fetchngs.tsv
+
+      fi
+
+    done
+
   fi
 
 done < $1
