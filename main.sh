@@ -22,8 +22,8 @@ Help() {
 ############################################################
 # Usage function
 ############################################################
-Usage() {
-  echo "Usage:   $0 -a <tmp/add_new_projects.txt> -e <joined;conflicts;both> [-h for help]"
+usage() {
+  echo "Usage: $0 -a <tmp/add_new_projects.txt> -e <consensus;conflicts;both> [-h for help]"
 }
 
 
@@ -142,10 +142,38 @@ if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
   sbatch scripts/resume_ampliseq.sh 
 fi
 
+
+########################################################
+# Taxonomy per project (R script)
+########################################################
+
+
+if [ $export == "none" ]; then
+  echo 'No generation and exportof R formatted taxonomy tables. The default option for -e is "none".'
+
+elif [[ $export == "both" || $export == "consensus" || $export == "conflicts" ]]; then
+
+  [ ! -d "output/taxo_per_project" ] && mkdir output/taxo_per_project
+
+  echo "R formatted taxonomy tables exported for all the studies."
+
+  module load r/4.5.2
+
+  sbatch \
+    #--mem 20GB \
+    --wrap="Rscript scripts/consensus_taxo.R $export"
+
+else
+
+  echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
+
+fi
+
+
 ########################################################
 # Agregate ampliseq outputs per projects
 ########################################################
 
 [ ! -d "output/agregated" ] && mkdir output/agregated
 
-sbatch scripts/agregate_ampliseq_outputs.sh
+sbatch scripts/agregate_outputs.sh

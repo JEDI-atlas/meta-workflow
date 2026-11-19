@@ -1,74 +1,112 @@
-#Make consensus taxonomy from pr2 and silva results
+# Make consensus taxonomy from pr2 and silva results
 
-#setwd("/shared/projects/jedi_meta/workflow")
+############################################################################################
+############################################################################################
+# This script is part of the jedi meta-workflow, it generates and exports taxonomic tables.
+# Usage: Rscript scripts/consensus_taxo.R -e <export_option>
+#
+# Input:
+# Reads in the output of ampliseq/dada2
+#
+# Outputs:
+# Its outputs are given for each study, regrouping its eventual groups, in output/out_per_project/taxonomy
+#
+# Consensus
+# <STUDY>_pr2_silva_consensus.tsv:
+# dada2 assignated taxonomy: with pr2, silva and a consensus (either pr2 and silva depending on the ASV)
+# The consensus confidence refers to the most precise taxonomic level kept
+# rows: ASVs, columns, pr2, silva and consensus taxonomies and confidences, consensus database
+#
+# Domain conflicts
+# <STUDY>_domain_conflicts.tsv
+# the conflicts on the domain level: ASVs for which pr2 and silva led to different assignation with dada2
+# rows: ASVs, columns: pr2 domain, silva domain (and the associated full taxonomy)
+#
+#
+# The export option (-e) allows to chose which tables will be exported
+# The arguments are either "consensus" (consensus table), "conflicts" (domain conflicts table) or "both" (both tables).
+# Default is "none" (the script doesn't run).
+############################################################################################
+############################################################################################
 
+
+#Generate the tables only if relevant export option
+
+# Export option ----
+args <- commandArgs(trailingOnly = TRUE)
+export <- args[1] #to export tables with pr2, silva and consensus taxo and/or domain conflicts tables
+
+
+# Libraries and functions ----  
 library(tidyverse)
 library(stringmagic)
 library(stringr)
 
 source("scripts/functions_taxo.R")
-
-#Reference databases and their version as written in ampliseq/dada2 output
-refdbs <- c("pr2_5_1_0", "silva_138_2") #replace with silva_144
+  
 
 
-# Read files ----
-#projects_list <- readLines("tmp/projects_files_list.txt")
-#projects_list <- str_remove(projects_list, "\\.(csv|tsv|txt)$")
-projects_list <- c("PRJEB107922", "PRJEB89924", "PRJNA579489")
-
-#List of dada2 ASV taxonomy filenames (ampliseq/dada2 output)
-taxo_files_pr2 <-str_c("output/ampliseq_2db/", projects_list, "/dada2/ASV_tax.pr2_5_1_0.tsv")
-taxo_files_silva <-str_c("output/ampliseq_2db/", projects_list, "/dada2/ASV_tax.silva_138_2.tsv")
-
-taxo_names_pr2 <- str_c("pr2_", projects_list)
-taxo_names_silva <- str_c("silva_", projects_list)
-
-
-
+## Read files ----
+studies_list <- readLines("tmp/studies_list.txt")
+  
+taxo_files_pr2 <- list.files(path="output/ampliseq", pattern="ASV_tax.pr2", recursive=TRUE, full.names=TRUE)
+taxo_files_silva <- list.files(path="output/ampliseq", pattern="ASV_tax.silva", recursive=TRUE, full.names=TRUE)
+  
+studies_names <- str_remove_all(taxo_files_pr2, "^output/ampliseq/|/dada2.+") |> 
+  str_replace("/Group_", "_G")
+  
 pr2_taxonomic_tables <- taxo_files_pr2 |>  
-  set_names(taxo_names_pr2) |> 
+  set_names(str_c("pr2_", studies_names)) |> 
   map(read_tsv)
-
+  
 silva_taxonomic_tables <- taxo_files_silva |>  
-  set_names(taxo_names_silva) |> 
+  set_names(str_c("silva_", studies_names)) |> 
   map(read_tsv)
+  
 
 
-#Handle the confidence scores ----
-#For silva, cut confidence string so we have as many confidence score as we have taxonomic levels
-#(silva repeats last value instead of giving values below 0.5, we replace the repeats by NA)
-taxo_ranks <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
-silva_taxonomic_tables <- map(silva_taxonomic_tables, .f=manage_silva_confidences, taxo_ranks)
-
-
-
-# Regroup pr2 and silva taxonomies in one table for each project ----
-
-#Formatted tables for each projects for silva and pr2
+## Make consensus taxnomy ----
+  
+# Formatted tables for each projects for silva and pr2
 pr2_taxonomic_tables <- map(pr2_taxonomic_tables, format_taxo_table_pr2)
 silva_taxonomic_tables <- map(silva_taxonomic_tables, format_taxo_table_silva)
+  
+  
+# Table with both pr2 and silva complete taxonomies
+pr2_silva_consensus <-  map2(.x= pr2_taxonomic_tables, 
+                             .y= silva_taxonomic_tables,
+                             .f= ~ full_join(.x, .y, by="ASV_ID")) |>
+                        set_names(studies_names)
+  
+# Add the consensus taxonomy on the joined taxonomic tables
+pr2_silva_consensus2 <- map(pr2_silva_consensus, .f=make_consensus_taxo)
+
+# Agregate the groups of the studies to have one file per study
+# Extract the studies names with their group multiplicity and row-bind the groups
+prefixes <- sub("_G\\d+$", "", names(pr2_silva_consensus))
+pr2_silva_consensus <- split(pr2_silva_consensus, prefixes) |> 
+  map(bind_rows)
+  
 
 
-#Create the list of merged taxonomies for each projects and rename them
-pr2_silva_joined <-  map2(.x= pr2_taxonomic_tables, 
-                          .y= silva_taxonomic_tables,
-                          .f= ~ full_join(.x, .y, by="ASV_ID")) |>
-                     set_names( str_c("joined_", projects_list))
+#Export tables to output/out_per_project/taxonomy
 
-#Above:
-#pr2_silva_joined is a list where
-#each element is a table where lines are ASV_ID and columns are pr2 and silva taxonomy and confidence
-##############################
-
-
-## Get conflict info on the domain level ----
-#Table listing the ASVs for which pr2 and silva gave different domains
-#and the domain assignated with pr2 and silva
-domain_conflicts_per_projects <- map(pr2_silva_joined, domain_conflict) |> 
-  set_names(paste0("domain_conflicts_", projects_list))
-
-
-# Add the consensus taxonomy on the joined taxonomic tables ----
-#We now have pr2, silva and consensus (confidence consensus only for the most precise taxonomic level kept)
-pr2_silva_consensus <- map(pr2_silva_joined, .f=make_consensus_taxo)
+if (export=="consensus" | export=="both"){
+  walk2(.x=pr2_silva_consensus,
+        .y=studies_names,
+        .f= ~ write_tsv(.x,
+                        file=str_c("output/out_per_project/taxonomy/", .y,
+                                   "_pr2_silva_consensus.tsv"), append=FALSE)
+        )
+} else if (export=="conflicts" | export=="both"){
+  
+  ## Get conflict info on the domain level
+  domain_conflicts_per_projects <- map(pr2_silva_consensus, domain_conflict)
+  
+  walk2(.x=domain_conflicts_per_projects,
+        .y=studies_names,
+        .f= ~ write_tsv(.x,
+                        file=str_c("output/out_per_project/taxonomy/", .y,
+                                   "_domain_conflicts.tsv"), append=FALSE)
+        )
+} 
