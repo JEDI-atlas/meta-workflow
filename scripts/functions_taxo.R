@@ -1,5 +1,5 @@
 ##Functions for the taxonomic tables
-
+# Used in consensus_taxo.R script
 
 # SILVA confidence scores ----
 # see older commit

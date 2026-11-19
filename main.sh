@@ -115,18 +115,26 @@ fi
 # Taxonomy per project (R script)
 ########################################################
 
-[ ! -d "output/taxo_per_project" ] && mkdir output/taxo_per_project
 
-module load r/4.5.2
+if [ $export == "none" ]; then
+  echo 'No generation and exportof R formatted taxonomy tables. The default option for -e is "none".'
 
-sbatch \
+elif [[ $export == "both" || $export == "consensus" || $export == "conflicts" ]]; then
+
+  [ ! -d "output/taxo_per_project" ] && mkdir output/taxo_per_project
+
+  echo "R formatted taxonomy tables exported for all the studies."
+
+  module load r/4.5.2
+
+  sbatch \
     #--mem 20GB \
     --wrap="Rscript scripts/consensus_taxo.R $export"
 
-if [ export=="none" ]; then
-  echo "No export of R formatted taxonomy tables."
 else
-  echo "R formatted taxonomy tables exported for all the projects"
+
+  echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
+
 fi
 
 
