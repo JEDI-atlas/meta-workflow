@@ -144,34 +144,14 @@ fi
 
 
 ########################################################
-# Taxonomy per project (R script)
+# Regroup the (eventual) groups of the studies
 ########################################################
 
-
-if [ $export == "none" ]; then
-  echo 'No generation and exportof R formatted taxonomy tables. The default option for -e is "none".'
-
-elif [[ $export == "both" || $export == "consensus" || $export == "conflicts" ]]; then
-
-  [ ! -d "output/taxo_per_project" ] && mkdir output/taxo_per_project
-
-  echo "R formatted taxonomy tables exported for all the studies."
-
-  module load r/4.5.2
-
-  sbatch \
-    #--mem 20GB \
-    --wrap="Rscript scripts/consensus_taxo.R $export"
-
-else
-
-  echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
-
-fi
+sbatch scripts/regroup.sh ${add_studies}
 
 
 ########################################################
-# Agregate ampliseq outputs per projects
+# Agregate ampliseq outputs per studies
 ########################################################
 
 [ ! -d "output/agregated" ] && mkdir output/agregated
