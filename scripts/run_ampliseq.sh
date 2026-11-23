@@ -29,20 +29,20 @@ while IFS= read -r study; do
     if [[ -f "$INPUT_FILE" &&  $(wc -l < "$INPUT_FILE") -gt 1 ]]; then
 
       echo "$INPUT_FILE exists and is not empty."
-      DIR=output/ampliseq/${study}
+      OUTDIR=./output/ampliseq/${study}/Group_${i}
 
-      if [ -d "$DIR" ]; then
-        echo "$DIR already exists. Not running ampliseq for the study ${study}."
+      if [ -d "$OUTDIR" ]; then
+        echo "$OUTDIR already exists. Not running ampliseq for the study ${study} group ${i}."
 
       else
-        echo "$DIR directory does not exist. Running ampliseq for every groups of the study ${study}."
+        echo "$OUTDIR directory does not exist. Running ampliseq for the study ${study} group ${i}."
 
         nextflow run nf-core/ampliseq -r 3.0.0 \
           -profile abims \
-          -c input/param.config \
+          -c ./input/param.config \
           -params-file ./input/${study}/params_ampliseq_G${i}.yaml \
           --input ${INPUT_FILE} \
-          --outdir ./output/ampliseq/${study}/Group_${i}
+          --outdir ${OUTDIR}
 
 
         # Error check and generation of a resume samplesheet for ampliseq

@@ -68,9 +68,22 @@ while IFS= read -r study; do
         find ./output/ampliseq/${study}/* -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
             > ./output/ampliseq/${study}/regrouped/overall_summary.tsv
 
-        # Ampliseq parameters
+        
         for ((i = 1; i <= nb_group; i++)); do
+
+            # Ampliseq parameters
             cp ./input/${study}/params_ampliseq_G${i}.yaml ./output/ampliseq/${study}/regrouped/params_ampliseq_G${i}.yaml
+
+
+            # Check input and output for differences
+            nb_input=$(wc -l input/${study}/samplesheet_G${i}.tsv)
+            nb_output=$(( $(wc -l output/ampliseq/${study}/Group_${i}/overall_summary.tsv) - 1))
+
+            if [[ $nb_input != $nb_output ]]; then
+                echo "The study ${study} group ${i} has ${nb_input} samples as input"
+                echo "and ${nb_output} samples in the output. Check manually for differences or errors."
+            fi
+
         done
 
         # Meta-workflow parameters
@@ -97,6 +110,15 @@ while IFS= read -r study; do
 
         # Meta-workflow parameters
         cp output/metaworkflow_params.yaml ./output/ampliseq/${study}/regrouped/metaworkflow_params.yaml
+
+        # Check input and output for differences
+        nb_input=$(wc -l input/${study}/samplesheet_G1.tsv)
+        nb_output=$(( $(wc -l "output/ampliseq/${study}/Group_1/overall_summary.tsv") - 1))
+
+        if [[ $nb_input != $nb_output ]]; then
+            echo "The study ${study} has ${nb_input} samples as input"
+            echo "and ${nb_output} samples in the output. Check manually for differences or errors."
+        fi
 
     fi
 

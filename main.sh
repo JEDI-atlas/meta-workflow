@@ -133,13 +133,13 @@ fi
 # Run nf-core ampliseq
 ########################################################
 
-sbatch scripts/run_ampliseq.sh ${add_studies}
+JOBIDAMPLISEQ=$(sbatch --parsable scripts/run_ampliseq.sh ${add_studies})
 
 #Re-run ampliseq with option -resume for projects that had en error 
 FILE=tmp/resume_ampliseq.tsv
 
 if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
-  sbatch scripts/resume_ampliseq.sh 
+  JOBIDresumeAMPLISEQ=$(sbatch --parsable scripts/resume_ampliseq.sh)
 fi
 
 
@@ -147,7 +147,7 @@ fi
 # Regroup the (eventual) groups of the studies
 ########################################################
 
-sbatch scripts/regroup.sh ${add_studies}
+JOBIDregroup=$(sbatch --parsable --dependency="afterok:$JOBIDAMPLISEQ?afterok:$JOBIDresumeAMPLISEQ" scripts/regroup.sh ${add_studies})
 
 
 ########################################################
@@ -156,4 +156,4 @@ sbatch scripts/regroup.sh ${add_studies}
 
 [ ! -d "output/agregated" ] && mkdir output/agregated
 
-sbatch scripts/agregate_outputs.sh
+sbatch --dependency=afterok:$JOBIDregroup scripts/agregate_outputs.sh
