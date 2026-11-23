@@ -47,33 +47,37 @@ while IFS= read -r study; do
 
     [ ! -d "output/ampliseq/${study}/regrouped" ] && mkdir output/ampliseq/${study}/regrouped
 
+    OUT="./output/ampliseq/${study}/regrouped"
+
+    # Traceability - bioproject(s), study ID, link(s) to manuscript(s)
+    grep ${study} ./input/studies_traceability.tsv > ${OUT}/traceability.tsv
+
     nb_group=$(ls input/${study}/samplesheet* | wc -l)
 
     if [[ $nb_group -gt 1 ]]; then
 
         # ASVs sequences
         find ./output/ampliseq/${study}/*/dada2 -name "ASV_seqs.fasta" -exec awk '/^>/ {if (seen[$0]++) {f=0} else {f=1}} f' {} + \
-            > ./output/ampliseq/${study}/regrouped/ASV_seqs.fasta
+            > ${OUT}/ASV_seqs.fasta
 
         # ASV counts per sample - rows are ASVs (long format table)
         gzip -dc ./output/ampliseq/${study}/*/summary_tables/ampliseq.counts.tsv.gz | awk 'NR==1 || $0 != "asv_id\tsample\tcount"' \
-            > ./output/ampliseq/${study}/regrouped/ampliseq.counts.tsv
+            > ${OUT}/ampliseq.counts.tsv
 
         # Input sample IDs
         find ./output/ampliseq/${study}/*/input -name "samplesheet.csv" -exec awk -F',' '
             NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}' {} + \
-            > ./output/ampliseq/${study}/regrouped/input_samples.txt
+            > ${OUT}/input_samples.txt
 
         # Overall summary "how many reads per sample passed each pipeline step in which a loss can occur"
         find ./output/ampliseq/${study}/* -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
-            > ./output/ampliseq/${study}/regrouped/overall_summary.tsv
+            > ${OUT}/overall_summary.tsv
 
         
         for ((i = 1; i <= nb_group; i++)); do
 
             # Ampliseq parameters
-            cp ./input/${study}/params_ampliseq_G${i}.yaml ./output/ampliseq/${study}/regrouped/params_ampliseq_G${i}.yaml
-
+            cp ./input/${study}/params_ampliseq_G${i}.yaml ${OUT}/params_ampliseq_G${i}.yaml
 
             # Check input and output for differences
             nb_input=$(wc -l input/${study}/samplesheet_G${i}.tsv)
@@ -87,29 +91,29 @@ while IFS= read -r study; do
         done
 
         # Meta-workflow parameters
-        cp output/metaworkflow_params.yaml ./output/ampliseq/${study}/regrouped/metaworkflow_params.yaml
+        cp ./output/metaworkflow_params.yaml ${OUT}/metaworkflow_params.yaml
 
     elif [[ $nb_group -eq 1 ]]; then
 
         # ASVs sequences
-        mv ./output/ampliseq/${study}/Group_1/dada2/ASV_seqs.fasta ./output/ampliseq/${study}/regrouped/ASV_seqs.fasta
+        mv ./output/ampliseq/${study}/Group_1/dada2/ASV_seqs.fasta ${OUT}/ASV_seqs.fasta
 
         # ASV counts per sample
-        mv ./output/ampliseq/${study}/Group_1/summary_tables/ampliseq.counts.tsv.gz ./output/ampliseq/${study}/regrouped/ampliseq.counts.tsv
+        mv ./output/ampliseq/${study}/Group_1/summary_tables/ampliseq.counts.tsv.gz ${OUT}/ampliseq.counts.tsv
         
         # Input sample IDs
         awk -F',' 'NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}
             ' ./output/ampliseq/${study}/Group_1/input/samplesheet.csv  \
-            > ./output/ampliseq/${study}/regrouped/input_samples.txt
+            > ${OUT}/input_samples.txt
 
         # Overall summary
-        mv ./output/ampliseq/${study}/Group_1/overall_summary.tsv ./output/ampliseq/${study}/regrouped/overall_summary.tsv
+        mv ./output/ampliseq/${study}/Group_1/overall_summary.tsv ${OUT}/overall_summary.tsv
 
         # Ampliseq parameters
-        cp ./input/${study}/params_ampliseq_G1.yaml ./output/ampliseq/${study}/regrouped/params_ampliseq.yaml
+        cp ./input/${study}/params_ampliseq_G1.yaml ${OUT}/params_ampliseq.yaml
 
         # Meta-workflow parameters
-        cp output/metaworkflow_params.yaml ./output/ampliseq/${study}/regrouped/metaworkflow_params.yaml
+        cp ./output/metaworkflow_params.yaml ${OUT}/metaworkflow_params.yaml
 
         # Check input and output for differences
         nb_input=$(wc -l input/${study}/samplesheet_G1.tsv)
@@ -147,4 +151,3 @@ else
   echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
 
 fi
-

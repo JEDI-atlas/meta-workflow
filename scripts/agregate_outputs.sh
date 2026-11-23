@@ -24,7 +24,7 @@
 
 # Concatenate fasta and remove duplicate sequences
 find ./output/ampliseq/*/regrouped/ASV_seqs.fasta -exec awk '/^>/ {if (seen[$0]++) {f=0} else {f=1}} f' {} + \
-  > output/agregated/ASV_seqs.fasta
+  > ./output/agregated/ASV_seqs.fasta
 
 
 ########################################################
@@ -34,7 +34,7 @@ find ./output/ampliseq/*/regrouped/ASV_seqs.fasta -exec awk '/^>/ {if (seen[$0]+
 #Rows are ASVs (long format table)
 find ./output/ampliseq/*/regrouped/ampliseq.counts.tsv.gz -exec gzip -dc {} + | \
   awk 'NR==1 || $0 != "asv_id\tsample\tcount"' \
-  > output/agregated/ampliseq.counts.tsv
+  > ./output/agregated/ampliseq.counts.tsv
 
 
 ########################################################
@@ -42,7 +42,7 @@ find ./output/ampliseq/*/regrouped/ampliseq.counts.tsv.gz -exec gzip -dc {} + | 
 ########################################################
 
 find ./output/ampliseq/*/regrouped/input_samples.txt \
-  -exec awk 'NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}' {} + | \
+  -exec awk 'NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}' {} + \
   > ./output/agregated/input_samples.txt
 
 
@@ -51,7 +51,7 @@ find ./output/ampliseq/*/regrouped/input_samples.txt \
 ########################################################
 
 find ./output/ampliseq/*/regrouped/ -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
-  > output/agregated/overall_summary.tsv
+  > ./output/agregated/overall_summary.tsv
 
 
 ########################################################
@@ -69,8 +69,14 @@ else
 
 fi
 
+
 ########################################################
 # Meta-workflow parameters
 ########################################################
+cp ./output/metaworkflow_params.yaml ./output/agregated/metaworkflow_params.yaml
 
-cp output/metaworkflow_params.yaml ./output/agregated/metaworkflow_params.yaml
+
+########################################################
+# Traceability - bioproject(s), study ID, link(s) to manuscript(s)
+########################################################
+cp ./input/studies_traceability.tsv ./output/agregated/traceability.tsv
