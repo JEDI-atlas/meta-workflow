@@ -69,10 +69,16 @@ while IFS= read -r study; do
             NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}' {} + \
             > ${OUT}/input_samples.txt
 
-        # Overall summary "how many reads per sample passed each pipeline step in which a loss can occur"
-        find ./output/ampliseq/${study}/* -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
-            > ${OUT}/overall_summary.tsv
+        # Overall summary "how many reads per sample passed each pipeline step in which a loss can occur"            
+        find "./output/ampliseq/${study}" -mindepth 2 -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
+            > tmp/${study}_overall_summary.tsv
 
+        # Sample quality metric
+        quality_file="tmp/${study}_fastqc_per_sequence_quality_scores_plot.tsv"
+        find ./output/ampliseq/${study}/*/multiqc/multiqc_data -name "fastqc_per_sequence_quality_scores_plot.txt" \
+            -exec awk 'NR==1 || FNR!=1' {} + \
+            > $quality_file
+        
         
         for ((i = 1; i <= nb_group; i++)); do
 
@@ -124,7 +130,49 @@ while IFS= read -r study; do
             echo "and ${nb_output} samples in the output. Check manually for differences or errors."
         fi
 
+        # Sample quality metric
+        quality_file="output/ampliseq/${study}/Group_1/multiqc/multiqc_data/fastqc_per_sequence_quality_scores_plot.txt"
+
     fi
+
+
+    # Sample quality metric - most frequently observed Phred quality across bases (mean for read 1 and 2)
+    awk 'NR == 1 {print "most_freq_mean_phred_quality"
+        next
+        }
+        NR % 2 == 0 {
+            max_count_even = -1
+            save_score_even = 0
+            for (i = 2; i <= NF; i += 2) {
+                score = $i;
+                count = $(i+1);
+                gsub(/[(),]/, "", score);
+                gsub(/[(),]/, "", count);
+                if (count + 0 > max_count_even) {
+                    max_count_even = count + 0
+                    save_score_even = score + 0
+                }
+            }
+        }
+        NR % 2 == 1 {
+            max_count_odd = -1
+            save_score_odd = 0
+            for (i = 2; i <= NF; i += 2) {
+                score = $i;
+                count = $(i+1);
+                gsub(/[(),]/, "", score);
+                gsub(/[(),]/, "", count);
+                if (count + 0 > max_count_odd) {
+                    max_count_odd = count + 0
+                    save_score_odd = score + 0
+                }
+            }            
+            print (save_score_even + save_score_odd) / 2
+        }' $quality_file | paste <(cut -f1 tmp/${study}_overall_summary.tsv) \
+            - <(cut -f2- tmp/${study}_overall_summary.tsv) \
+            > ${OUT}/overall_summary.tsv
+
+
 
 done < $1
 
@@ -151,3 +199,8 @@ else
   echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
 
 fi
+
+
+# Clean
+rm tmp/*_fastqc_per_sequence_quality_scores_plot.tsv
+rm tmp/*_overall_summary.tsv
