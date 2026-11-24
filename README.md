@@ -31,9 +31,11 @@ sbatch main.sh -e both
 ## Options
 
 **-h**  to print the help  
+
 **-a**  (Optional) Path to a file listing the studies, its bio-projects and manuscripts as explained in the section input for studies_traceability.tsv.    
     If there are some other similar input file, they will be ignored, even if their outputs have been deleted from the working directory.  
-    Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).
+    Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).  
+    
 **-e**   Can take the values consensus, conflicts or both. Default is none.  
          "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
          "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
@@ -141,11 +143,11 @@ Instead:
 Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.  
 Nat Biotechnol. 2020 Feb 13. doi: 10.1038/s41587-020-0439-x.  
 
-### nf-core fetchngs   
+**nf-core fetchngs**   
 doi: 10.5281/zenodo.5070524  
 
 
-### nf-core ampliseq  
+**nf-core ampliseq**  
 doi: 10.5281/zenodo.1493841  
 
 **Interpretations of Environmental Microbial Community Studies Are Biased by the Selected 16S rRNA (Gene) Amplicon Sequencing Pipeline**  
@@ -156,6 +158,6 @@ Frontiers in Microbiology 2020, 11:2652 doi: 10.3389/fmicb.2020.550420.
 Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.  
 Nat Biotechnol. 2020 Feb 13. doi: 10.1038/s41587-020-0439-x.  
 
-**Universal primers**
+**Universal primers**  
 Parada AE, Needham DM, Fuhrman JA. Every base matters: assessing small subunit rRNA primers for marine microbiomes with mock communities, time series and global field samples. Environ Microbiol. 2016 May;18(5):1403-14. doi: 10.1111/1462-2920.13023. Epub 2015 Oct 14. PMID: 26271760.
 
