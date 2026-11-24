@@ -37,10 +37,10 @@ sbatch main.sh -e both
     Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).  
     
 **-e**   Can take the values consensus, conflicts or both. Default is none.  
-         "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
-         "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
-         "both": to export taxonomy and domain conflicts tables  
-         If consensus or both, agregated_consensus_taxonomy.tsv is also created and exported. See Outputs section   
+          "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
+          "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
+          "both": to export taxonomy and domain conflicts tables  
+          If consensus or both, agregated_consensus_taxonomy.tsv is also created and exported. See Outputs section   
 
 
 ## Inputs  
@@ -130,7 +130,7 @@ Instead:
   - Projects: column listing all the projects where the ASV is found
   - consensus_taxo: consensus of all the consensus taxonomy for the ASV (shortest)
   - consensus_conf: consensus of all the consensus confidences for the ASV (smallest)
-  - consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)  
+  - consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)
 
     **Rules for the agregated consensus taxonomy**:  
     When an ASV is present in more than one bio-project, there can be (small) differences in dada2 taxonomic assignation between projects due to "[an element of randomness in the naive Bayesian classifier method that comes from selecting the subsamples of the sequence over which boot strapping assignment is performed"](https://github.com/benjjneb/dada2/issues/1115) and which isn't fixed by setting a seed. Thus, when the taxonomies differ, the shortest one (i.e. with the fewest number of taxonomic level assigned) is kept as consensus over the projects. When the taxonomies are identical but the confidences differ, the smallest confidence value is kept.  
