@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 
 ############################################################################################
-# When a study has groups, regroup their outputs in output/ampliseq/${study}/regrouped
+# When a study has groups, the groups outputs are regrouped.
 #
-# One table per study for:
+# For all the studies, the following tables  are placed in output/<STUDY>:
 #
-# ASVs counts per sample
-# overall summary: "how many reads per sample passed each pipeline step in which a loss can occur" (cutadapt and dada2 steps)
-# asv description (ASV_seqs.fasta)
-# taxo optional
-# sample ID input
-# ampliseq parameters - as many files (.yaml) as their are groups because they can have different parameters
-# metadata metaworkflow: version (ID commit github), param metaworkflow
-# taxonomy done with consensus_taxo.R
+# traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
+# ASV_seqs.fasta: ASVs description
+# ampliseq.counts.tsv: ASVs counts per sample
+# input_samples.txt: sample ID input
+# overall_summary.tsv: sample quality metric and
+#   "how many reads per sample passed each pipeline step in which a loss can occur" (cutadapt and dada2 steps)
+# params_ampliseq_G<i>.yaml: ampliseq parameters - as many files as groups because they can have different parameters
+# metaworkflow_params.yaml: metadata metaworkflow: version (ID commit github), param metaworkflow
+#
+# Taxonomy tables, done with consensus_taxo.R:
+# consensus_taxo.tsv
+# domain_conflicts.tsv
+#
+#
+# Agregated consensus taxonomy is also created by consensus_taxo.R in this script, see agregate_outputs.sh
 #
 ############################################################################################
 
@@ -45,11 +52,11 @@ fi
 
 while IFS= read -r study; do
 
-    [ ! -d "output/ampliseq/${study}/regrouped" ] && mkdir output/ampliseq/${study}/regrouped
+    [ ! -d "output/${study}" ] && mkdir output/${study}
 
-    OUT="./output/ampliseq/${study}/regrouped"
+    OUT="./output/${study}"
 
-    # Traceability - bioproject(s), study ID, link(s) to manuscript(s)
+    # Traceability
     grep ${study} ./input/studies_traceability.tsv > ${OUT}/traceability.tsv
 
     nb_group=$(ls input/${study}/samplesheet* | wc -l)
@@ -96,8 +103,6 @@ while IFS= read -r study; do
 
         done
 
-        # Meta-workflow parameters
-        cp ./output/metaworkflow_params.yaml ${OUT}/metaworkflow_params.yaml
 
     elif [[ $nb_group -eq 1 ]]; then
 
@@ -113,13 +118,11 @@ while IFS= read -r study; do
             > ${OUT}/input_samples.txt
 
         # Overall summary
-        mv ./output/ampliseq/${study}/Group_1/overall_summary.tsv ${OUT}/overall_summary.tsv
+        mv ./output/ampliseq/${study}/Group_1/overall_summary.tsv tmp/${study}_overall_summary.tsv
 
         # Ampliseq parameters
         cp ./input/${study}/params_ampliseq_G1.yaml ${OUT}/params_ampliseq.yaml
 
-        # Meta-workflow parameters
-        cp ./output/metaworkflow_params.yaml ${OUT}/metaworkflow_params.yaml
 
         # Check input and output for differences
         nb_input=$(wc -l input/${study}/samplesheet_G1.tsv)
@@ -136,8 +139,12 @@ while IFS= read -r study; do
     fi
 
 
-    # Sample quality metric - most frequently observed Phred quality across bases (mean for read 1 and 2)
-    awk 'NR == 1 {print "most_freq_mean_phred_quality"
+    # Meta-workflow parameters
+    cp ./output/metaworkflow_params.yaml ${OUT}/metaworkflow_params.yaml
+
+
+    # Sample quality metric - most frequently observed Phred quality across bases (mean for reads 1 and 2)
+    awk 'NR == 1 {print "most_freq_mean_phred_score"
         next
         }
         NR % 2 == 0 {
@@ -172,8 +179,6 @@ while IFS= read -r study; do
             - <(cut -f2- tmp/${study}_overall_summary.tsv) \
             > ${OUT}/overall_summary.tsv
 
-
-
 done < $1
 
 
@@ -184,15 +189,15 @@ if [ $export == "none" ]; then
 
 elif [[ $export == "both" || $export == "consensus" || $export == "conflicts" ]]; then
 
-  [ ! -d "output/regrouped/taxonomy" ] && mkdir output/regrouped/taxonomy
+    [ ! -d "output/agregated" ] && mkdir output/agregated
 
-  echo "R formatted taxonomy tables exported for all the studies."
+    echo "R formatted taxonomy tables exported for all the studies."
 
-  module load r/4.5.2
+    module load r/4.5.2
 
-  sbatch \
-    #--mem 20GB \
-    --wrap="Rscript scripts/consensus_taxo.R $export"
+    sbatch \
+        #--mem 20GB \
+        --wrap="Rscript scripts/consensus_taxo.R $export"
 
 else
 
