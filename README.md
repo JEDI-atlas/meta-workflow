@@ -39,7 +39,7 @@ sbatch main.sh -e both
 **-e**   Can take the values consensus, conflicts or both. Default is none.  
          "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
          "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
-         "both" to export taxonomy and domain conflicts tables  
+         "both": to export taxonomy and domain conflicts tables  
          If consensus or both, agregated_consensus_taxonomy.tsv is also created and exported. See Outputs section   
 
 
@@ -52,16 +52,21 @@ The inputs must be organized in different studies, which can correspond to one o
 
 To place in the folder input:  
 - **params_fetchngs.yaml**:
-  file with the parameters of fetchngs    
+  Parameters file for fetchngs
+  
 - **studies_traceability.tsv**:  
-  columns: data accession (bioprojects IDs), study ID and link to the paper (in, that order)  
-- **param.config** (optionnal, personnalized configuration file for nextflow)  
+  Columns: data accession (bioprojects IDs), study ID and link to the paper (in, that order)
+  
+- **param.config**:
+  Optionnal, personnalized configuration file for nextflow  
 
 For each study, in **input/<study_ID>**:  
 - **ena_run_metadata.tsv** 
 - **ena_sample_metadata.tsv** (optional)
-- **params_ampliseq_Gi.yaml** (as many files as there are groups, i being the group number)
-- **samplesheet_Gi.tsv** (idem)
+- **params_ampliseq_Gi.yaml**:
+  As many files as there are groups, i being the group number
+- **samplesheet_Gi.tsv**:
+  Also one file per group, lists the run accessions of the group
 
 
 ## Outputs  
@@ -86,7 +91,7 @@ The following tables are saved in the folder output/\<study_ID\>, with informati
     other columns:
     "how many reads per sample passed each pipeline step in which a loss can occur" (see nf-core ampliseq doc)
 
-- **params_ampliseq_G\<i\>.yaml**:  
+- **params_ampliseq_Gi.yaml**:  
     Ampliseq parameters, with as many files as groups because they can have different parameters  
 
 - **metaworkflow_params.yaml**:
@@ -103,8 +108,8 @@ The following tables are saved in the folder output/\<study_ID\>, with informati
   **Rules of the consensus taxonomy**:  
     pr2 is consensus when the ASV is assigned to _Eukaryota_  
     silva is consensus for _Bacteria_ and _Archaea_  
-    silva _Mitochondria_ are assigned _Eukaryota:mito_  (consensus_db: "-")
-    silva _Chloroplast_  are assigned _conflict_  (consensus_db: "-")
+    silva _Mitochondria_ are assigned _Eukaryota:mito_ (consensus_db: "-")  
+    silva _Chloroplast_  are assigned _conflict_  (consensus_db: "-")  
 
 
 - **domain_conflicts.tsv**:  
@@ -116,23 +121,20 @@ Lists the ASVs for which PR2 and SILVA led to different domain assignation with 
     - silva_dada2_taxonomy
 
 
-In output/agregated, the same tables as listed above are found, except consensus_taxo.tsv and domain_conflicts.tsv.  
+The same tables are in output/agregated, except consensus_taxo.tsv and domain_conflicts.tsv.  
 Instead:  
 
 - **agregated_consensus_taxo.tsv**:  
-    Consensus taxonomy table for one study. The columns are:  
-    ASV_ID 
-    Projects: column listing all the projects where the ASV is found  
-    consensus_taxo: consensus of all the consensus taxonomy for the ASV (shortest)  
-    consensus_conf: consensus of all the consensus confidences for the ASV (smallest)  
-    consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)  
+  Consensus taxonomy table (for a study).  
+  - ASV_ID
+  - Projects: column listing all the projects where the ASV is found
+  - consensus_taxo: consensus of all the consensus taxonomy for the ASV (shortest)
+  - consensus_conf: consensus of all the consensus confidences for the ASV (smallest)
+  - consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)  
 
-**Rules for the agregated consensus taxonomy**:  
-    When an ASV is present in more than one bio-project, there can be (small) differences in dada2 taxonomic assignation between projects due to "[an element of randomness in the naive Bayesian classifier method that comes from selecting the subsamples of the sequence over which boot strapping assignment is performed"](https://github.com/benjjneb/dada2/issues/1115) and which isn't fixed by setting a seed.  
-    Thus, when the taxonomies differ, the shortest one (i.e. with the fewest number of taxonomic level assigned) is kept as consensus over the projects.  
-    When the taxonomies are identical but the confidences differ, the smallest confidence value is kept.  
+    **Rules for the agregated consensus taxonomy**:  
+    When an ASV is present in more than one bio-project, there can be (small) differences in dada2 taxonomic assignation between projects due to "[an element of randomness in the naive Bayesian classifier method that comes from selecting the subsamples of the sequence over which boot strapping assignment is performed"](https://github.com/benjjneb/dada2/issues/1115) and which isn't fixed by setting a seed. Thus, when the taxonomies differ, the shortest one (i.e. with the fewest number of taxonomic level assigned) is kept as consensus over the projects. When the taxonomies are identical but the confidences differ, the smallest confidence value is kept.  
     
-
 
 
 ## References
