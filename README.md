@@ -1,8 +1,8 @@
 # jedi_meta-workflow
 
-    This workflow helps analysing a large volume of metabarcoding data from different published studies.  
+This workflow helps analysing a large volume of metabarcoding data from different published studies.  
 
-For this first version, the DNA must be amplified with the universal primers (5'-GTGYCAGCMGCCGCGGTAA-3' and 926R (5'-CCGYCAATTYMTTTRAGTTT-3') [(Parada, Needham, & Fuhrman, 2016)](https://pubmed.ncbi.nlm.nih.gov/26271760/), targeting the V4-V5 region of the small subunit rRNA gene and which allows the amplification of 16S rRNA (_Bacteria, Archaea_) as well as 18S rRNA (_Eukaryota_).
+For this first version, the DNA must be amplified with the universal primers (5'-GTGYCAGCMGCCGCGGTAA-3' and 926R (5'-CCGYCAATTYMTTTRAGTTT-3')  [(Parada, Needham, & Fuhrman, 2016)](https://pubmed.ncbi.nlm.nih.gov/26271760/), targeting the V4-V5 region of the small subunit rRNA gene and which allows the amplification of 16S rRNA (_Bacteria, Archaea_) as well as 18S rRNA (_Eukaryota_).
 
 
 
@@ -17,16 +17,28 @@ For this first version, the DNA must be amplified with the universal primers (5'
     - DADA2 (Divisive Amplicon Denoising Algorithm 2):
         - Amplicon Sequence Variants (ASVs) inferring  
         - Taxonomical classification (reference databases: pr2 and silva)  
-3. Produces a formatted, reproducible archive for each study  
+3. Produces a formatted, reproducible archive for each study and one for all the studies agregated together  
 
 
 ## Usage
 
 sbatch main.sh -a <add_new_studies.txt> -e <consensus;conflicts;both> [-h for help]  
 
-**Examples:**
+**Examples:**  
 sbatch main.sh -a "tmp/add_new_studies.txt" -e both  
 sbatch main.sh -e both  
+
+## Options
+
+**-h**  to print the help  
+**-a**  (Optional) Path to a file listing the studies, its bio-projects and manuscripts as explained in the section input for studies_traceability.tsv.    
+    If there are some other similar input file, they will be ignored, even if their outputs have been deleted from the working directory.  
+    Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).
+**-e**   Can take the values consensus, conflicts or both. Default is none.  
+         "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
+         "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
+         "both" to export taxonomy and domain conflicts tables  
+         If consensus or both, agregated_consensus_taxonomy.tsv is also created and exported. See Outputs section   
 
 
 ## Inputs  
@@ -37,11 +49,13 @@ The inputs must be organized in different studies, which can correspond to one o
 
 
 To place in the folder input:  
-- **params_fetchngs.yaml**: file with parameters for fetchngs    
-- **studies_traceability.tsv**: columns data accession (bioprojects IDs), study ID and link to the paper  
+- **params_fetchngs.yaml**:
+  file with the parameters of fetchngs    
+- **studies_traceability.tsv**:  
+  columns: data accession (bioprojects IDs), study ID and link to the paper (in, that order)  
 - **param.config** (optionnal, personnalized configuration file for nextflow)  
 
-For each study, in **input/<study_id>**:  
+For each study, in **input/<study_ID>**:  
 - **ena_run_metadata.tsv** 
 - **ena_sample_metadata.tsv** (optional)
 - **params_ampliseq_Gi.yaml** (as many files as there are groups, i being the group number)
@@ -50,12 +64,12 @@ For each study, in **input/<study_id>**:
 
 ## Outputs  
 
-The following tables are saved in the folder output/<STUDY>, with information for every run of the study (no more groups) as well as in the folder output/agregated, where they regroup all the runs of all the studies together.  
+The following tables are saved in the folder output/\<study_ID\>, with information for every run of the study (no more groups) as well as in the folder output/agregated, where they regroup all the runs of all the studies together.  
 
 - **traceability.tsv**:  
     copy of input/studies_traceability.tsv
 
-- **input_samples.txt**:
+- **input_samples.txt**:  
     sample IDs given as input for the study  
 
 - **ASV_seqs.fasta**:   
@@ -70,21 +84,21 @@ The following tables are saved in the folder output/<STUDY>, with information fo
     other columns:
     "how many reads per sample passed each pipeline step in which a loss can occur" (see nf-core ampliseq doc)
 
-- **params_ampliseq_G<i>.yaml**:  
-    ampliseq parameters, with as many files as groups because they can have different parameters
+- **params_ampliseq_G\<i\>.yaml**:  
+    Ampliseq parameters, with as many files as groups because they can have different parameters  
 
 - **metaworkflow_params.yaml**:
-    metadata of the meta-workflow; version (tag + ID commit github), options used
+    Metadata of the meta-workflow; version (tag + ID commit github), options used  
 
 - **consensus_taxo.R**:
-    - <pr2/silva>_dada2_taxonomy: taxonomy assigned by dada2 assignTaxonomy() based on the database PR2 (resp. SILVA)
+    - \<pr2/silva>_dada2_taxonomy: taxonomy assigned by dada2 assignTaxonomy() based on the database PR2 (resp. SILVA)
     - <pr2/silva>_dada2_confidence: confidence of the last taxonomic rank assigned by dada2, using PR2 (resp. SILVA)  
     - <pr2/silva>_dada2_allConfidences: the confidences of all the assigned taxonomic ranks, using PR2 (resp. SILVA)  
     - consensus_dada2_taxonomy: the taxonomy assigned with either PR2 or SILVA. See consensus rules below  
     - consensus_confidence: confidence of the last taxonomic rank of the consensus taxonomy  
     - consensus_db: "pr2", "silva" or "-" depending on the consensus taxonomy chosen  
 
-  Rules of consensus taxonomy:  
+  **Rules of the consensus taxonomy**:  
     pr2 is consensus when the ASV is assigned to _Eukaryota_  
     silva is consensus for _Bacteria_ and _Archaea_  
     silva _Mitochondria_ are assigned _Eukaryota:mito_  (consensus_db: "-")
@@ -110,31 +124,12 @@ Instead:
     consensus_taxo: consensus of all the consensus taxonomy for the ASV (shortest)  
     consensus_conf: consensus of all the consensus confidences for the ASV (smallest)  
     consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)  
- 
+
+**Rules for the agregated consensus taxonomy**:  
     When an ASV is present in more than one bio-project, there can be (small) differences in dada2 taxonomic assignation between projects due to "[an element of randomness in the naive Bayesian classifier method that comes from selecting the subsamples of the sequence over which boot strapping assignment is performed"](https://github.com/benjjneb/dada2/issues/1115) and which isn't fixed by setting a seed.  
     Thus, when the taxonomies differ, the shortest one (i.e. with the fewest number of taxonomic level assigned) is kept as consensus over the projects.  
     When the taxonomies are identical but the confidences differ, the smallest confidence value is kept.  
     
-
-
-
-## Options
-
-**-h**  to print the help  
-**-a**  Path to a file listing the samplesheets you want to analyse (one per line).  
-    Samplesheets must be named ID_PROJECT.csv with extension .csv .tsv or .txt  
-        Example:  
-        ID_PROJECT1.csv  
-        ID_PROJECT2.tsv  
-        ...    
-    If there are some other projects samplesheets, they will be ignored, even if their outputs have been deleted from the working directory.  
-    Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).
-**-e**   Can take the values joined, conflicts or both. Default is none.  
-         "joined" to export the tables with pr2, silva and consensus taxonomies (pr2_silva_consensus.tsv)  
-         "conflicts" to export the tables listing domain conflicts (domain_conflicts.tsv)  
-         "both" to export taxonomy and conflicts  
-         One table per project.   
-
 
 
 
@@ -161,6 +156,6 @@ Frontiers in Microbiology 2020, 11:2652 doi: 10.3389/fmicb.2020.550420.
 Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.  
 Nat Biotechnol. 2020 Feb 13. doi: 10.1038/s41587-020-0439-x.  
 
-## Universal primers
+**Universal primers**
 Parada AE, Needham DM, Fuhrman JA. Every base matters: assessing small subunit rRNA primers for marine microbiomes with mock communities, time series and global field samples. Environ Microbiol. 2016 May;18(5):1403-14. doi: 10.1111/1462-2920.13023. Epub 2015 Oct 14. PMID: 26271760.
 
