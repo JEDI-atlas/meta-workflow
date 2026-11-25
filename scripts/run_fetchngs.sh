@@ -47,9 +47,11 @@ while IFS= read -r study; do
       if [[ $status == "ERR" ]] && echo "$last_line" | grep -q "${study}"; then
 
         RUN_NAME=$(echo "${last_line}" | cut -f3)
-        echo "fetchngs run on the project ${study} failed. Correct the script and run again with -resume ${RUN_NAME} (run name)."
         echo -e "${study}\t${RUN_NAME}\t${i}" >> tmp/resume_fetchngs.tsv
-
+        echo "Fetchngs run on the study ${study} group ${i} failed. It was added to tmp/resume_fetchngs.tsv."
+        echo "Check fetchngs pipeline report and correct issues if relevant."
+        echo "Fetchngs run for $[study} will be resumed with -resume ${RUN_NAME} (run name) when running the workflow again."
+        
       fi
 
     done

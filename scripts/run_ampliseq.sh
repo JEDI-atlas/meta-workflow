@@ -32,7 +32,7 @@ while IFS= read -r study; do
       OUTDIR=./output/ampliseq/${study}/Group_${i}
 
       if [ -d "$OUTDIR" ]; then
-        echo "$OUTDIR already exists. Not running ampliseq for the study ${study} group ${i}."
+        echo -e "$OUTDIR already exists. Not running ampliseq for the study ${study} group ${i}.\n"
 
       else
         echo "$OUTDIR directory does not exist. Running ampliseq for the study ${study} group ${i}."
@@ -74,8 +74,8 @@ done < $1
 
 if [[ -f "tmp/resume_ampliseq.tsv" &&  $(wc -l < "tmp/resume_ampliseq.tsv") -gt 0 ]]; then
 
-  echo "The file tmp/resume_ampliseq.tsv was created."
-  echo "It lists the studies groups for which an error occurred when running ampliseq along with their associated run name."
+  echo "The file tmp/resume_ampliseq.tsv was created. It lists the studies groups for which an error occurred when running ampliseq and their associated run name."
+  echo "It contains the following line(s):"
   cat tmp/resume_ampliseq.tsv
 
 fi

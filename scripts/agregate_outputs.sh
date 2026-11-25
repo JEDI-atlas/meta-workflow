@@ -62,10 +62,10 @@ find ./output/ampliseq/*/regrouped/ -name "overall_summary.tsv" -exec awk 'NR==1
 
 if [[ $export == "consensus" || $export == "both" ]]; then
 
-  echo "You used -e "consensus" or -e "both", the table of agregated consensus taxonomy for all the studies will be created."
+  echo "You used -e \"consensus\" or -e \"both\", the table of agregated consensus taxonomy for all the studies will be created."
 
 else
-  echo "Use -e "consensus" (or -e "both") to have the table of agregated consensus taxonomy for all the studies."
+  echo "Use -e \"consensus\" (or -e \"both\") to have the table of agregated consensus taxonomy for all the studies."
 
 fi
 

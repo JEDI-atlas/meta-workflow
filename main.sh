@@ -92,9 +92,10 @@ if [ $add_studies != "tmp/studies_list.txt" ] ; then
 
 else
   
-  echo "Running fetchngs for every study that has (at least one) samplesheet in input/<STUDY>"
   ls -1 -d input/*/ | sort | cut -f2 -d'/' > tmp/studies_list.txt
-  echo "The file tmp/studies_list.txt was created."
+  echo "The file tmp/studies_list.txt lists the studies considered."
+  cat tmp/studies_list.txt
+  echo "Running fetchngs for every study that has (at least one) samplesheet in input/<STUDY> and no fetchngs output yet."
 
 fi
 
