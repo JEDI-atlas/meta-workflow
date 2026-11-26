@@ -16,6 +16,7 @@ Help() {
           than added some studies you also want to run (without running the other ones again).\n"
   echo -e "-e       Chose whether to export pr2, silva and consensus taxonomies (pr2_silva_consensus.tsv) and domain conflicts
         (domain_conflicts) tables (one per group and studies??). Either joined, conflicts or both. Default is none.\n"
+  echo -e "-r "yes" if you want to run the regroup.sh and aggregate_outputs.sh scripts. To use after ampliseq ran successfully.\n"
 }
 
 
@@ -23,7 +24,7 @@ Help() {
 # Usage function
 ############################################################
 usage() {
-  echo "Usage: $0 -a <tmp/add_new_projects.txt> -e <consensus;conflicts;both> [-h for help]"
+  echo "Usage: $0 -a <"add_new_studies.txt"> -e <"consensus";"conflicts";"both"> -r <"yes"> [-h for help]"
 }
 
 
@@ -32,10 +33,11 @@ usage() {
 #########
 
 #Default values
-export="none"
 add_studies="tmp/studies_list.txt"
+exported="none"
+regroup="no"
 
-while getopts ":ha:e:" OPTION
+while getopts ":ha:e:r:" OPTION
 do
   case $OPTION in
   h)
@@ -47,7 +49,10 @@ do
     add_studies=$OPTARG
     ;;
   e) #Export taxonomy and/or domain conflicts tables
-    export=$OPTARG
+    exported=$OPTARG
+    ;;
+  r) #Output per study and aggregated ?
+    regroup=$OPTARG
     ;;
   \?)
     echo "Invalid option: -$OPTARG"
@@ -68,8 +73,8 @@ done
 [ ! -d "output" ] && mkdir output
 
 export add_studies="$add_studies"
-export export="$export"
-
+export exported="$exported"
+export regroup="$regroup"
 
 
 ########################################################
@@ -148,13 +153,17 @@ fi
 # Regroup the (eventual) groups of the studies
 ########################################################
 
-JOBIDregroup=$(sbatch --parsable --dependency="afterok:$JOBIDAMPLISEQ?afterok:$JOBIDresumeAMPLISEQ" scripts/regroup.sh ${add_studies})
+if [[ $regroup == "yes" ]]; then
+  sbatch scripts/regroup.sh ${add_studies}
+  regrouped="done"
+fi
+
 
 
 ########################################################
-# Agregate ampliseq outputs per studies
+# Aggregate ampliseq outputs per studies
 ########################################################
 
-[ ! -d "output/agregated" ] && mkdir output/agregated
-
-sbatch --dependency=afterok:$JOBIDregroup scripts/agregate_outputs.sh
+if [[ $regrouped == "done" ]]; then
+  sbatch scripts/aggregate_outputs.sh
+fi

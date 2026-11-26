@@ -5,24 +5,29 @@
 #
 # For all the studies, the following tables  are placed in output/<STUDY>:
 #
-# traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
-# ASV_seqs.fasta: ASVs description
 # ampliseq.counts.tsv: ASVs counts per sample
+# ASV_seqs.fasta: ASVs description
 # input_samples.txt: sample ID input
+# params_ampliseq_G<i>.yaml: ampliseq parameters - as many files as groups because they can have different parameters
+# traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
+#
+# metaworkflow_params.yaml: metadata metaworkflow: version (ID commit github), param metaworkflow
+#
 # overall_summary.tsv: sample quality metric and
 #   "how many reads per sample passed each pipeline step in which a loss can occur" (cutadapt and dada2 steps)
-# params_ampliseq_G<i>.yaml: ampliseq parameters - as many files as groups because they can have different parameters
-# metaworkflow_params.yaml: metadata metaworkflow: version (ID commit github), param metaworkflow
 #
 # Taxonomy tables, done with consensus_taxo.R:
 # consensus_taxo.tsv
 # domain_conflicts.tsv
 #
 #
-# Agregated consensus taxonomy is also created by consensus_taxo.R in this script, see agregate_outputs.sh
+# Aggregted consensus taxonomy is also created by consensus_taxo.R in this script, see aggregate_outputs.sh
 #
 ############################################################################################
 
+[ ! -d "output/final_files" ] && mkdir output/final_files
+
+[ ! -d "output/final_files/per_study" ] && mkdir output/final_files/per_study
 
 # Meta-workflow metadata
 
@@ -37,13 +42,13 @@ if [ ! -f "output/metaworkflow_params.yaml" ]; then
     VERSION=$(git describe --always --long | cut -d '-' -f1) #Shows the nearest tag, the number of commits since the tag, and the abbreviated commit hash.
 
     echo "# Metaworkflow info" \
-        > output/agregated/metaworkflow_params.yaml
+        > output/aggregted/metaworkflow_params.yaml
     echo -e "\n#Versions\nmetaworkflow_version: ${VERSION}
     git_commit_hash: ${COMMIT_HASH}
     fetchngs_version: ${fetchngs_version}
     ampliseq_version: ${ampliseq_version}\n
     #Options
-    #Export option:\nexport: ${export}
+    #Export option:\nexport: ${exported}
     #File listing the projects to compute:\nadd_projects: \"${add_studies}\"" \
         >> output/metaworkflow_params.yaml
 
@@ -52,12 +57,13 @@ fi
 
 while IFS= read -r study; do
 
-    [ ! -d "output/${study}" ] && mkdir output/${study}
+    [ ! -d "output/final_files/per_study/${study}" ] && mkdir output/final_files/per_study/${study}
 
-    OUT="./output/${study}"
+    OUT="./output/final_files/per_study/${study}"
 
     # Traceability
-    grep ${study} ./input/studies_traceability.tsv > ${OUT}/traceability.tsv
+    echo -e "Data_accession\tStudy_ID\tManuscript" > ${OUT}/traceability.tsv
+    grep ${study} ./input/studies_traceability.tsv >> ${OUT}/traceability.tsv
 
     nb_group=$(ls input/${study}/samplesheet* | wc -l)
 
@@ -76,7 +82,7 @@ while IFS= read -r study; do
             NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}' {} + \
             > ${OUT}/input_samples.txt
 
-        # Overall summary "how many reads per sample passed each pipeline step in which a loss can occur"            
+        # Overall summary "how many reads per sample passed each pipeline step in which a loss can occur"           
         find "./output/ampliseq/${study}" -mindepth 2 -name "overall_summary.tsv" -exec awk 'NR==1 || FNR!=1' {} + \
             > tmp/${study}_overall_summary.tsv
 
@@ -93,10 +99,10 @@ while IFS= read -r study; do
             cp ./input/${study}/params_ampliseq_G${i}.yaml ${OUT}/params_ampliseq_G${i}.yaml
 
             # Check input and output for differences
-            nb_input=$(wc -l input/${study}/samplesheet_G${i}.tsv)
-            nb_output=$(( $(wc -l output/ampliseq/${study}/Group_${i}/overall_summary.tsv) - 1))
+            nb_input=$(wc -l < "input/${study}/samplesheet_G${i}.tsv")
+            nb_output=$(awk 'END {print NR-1}'  "output/ampliseq/${study}/Group_${i}/overall_summary.tsv")
 
-            if [[ $nb_input != $nb_output ]]; then
+            if (( "$nb_input" != "$nb_output" )); then
                 echo "The study ${study} group ${i} has ${nb_input} samples as input"
                 echo "and ${nb_output} samples in the output. Check manually for differences or errors."
             fi
@@ -184,24 +190,24 @@ done < $1
 
 # Consensus taxonomy per study
 
-if [ $export == "none" ]; then
+if [ $exported == "none" ]; then
   echo 'No generation and export of R formatted taxonomy tables. The default option for -e is "none".'
 
-elif [[ $export == "both" || $export == "consensus" || $export == "conflicts" ]]; then
+elif [[ $exported == "both" || $exported == "consensus" || $exported == "conflicts" ]]; then
 
-    [ ! -d "output/agregated" ] && mkdir output/agregated
+    [ ! -d "output/final_files/aggregated" ] && mkdir output/final_files/aggregated
 
     echo "R formatted taxonomy tables exported for all the studies."
 
     module load r/4.5.2
 
     sbatch \
-        #--mem 20GB \
-        --wrap="Rscript scripts/consensus_taxo.R $export"
+        --mem 20GB \
+        --wrap="Rscript scripts/consensus_taxo.R $exported"
 
 else
 
-  echo "${export} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
+  echo "${exported} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
 
 fi
 

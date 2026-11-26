@@ -6,6 +6,10 @@ For this first version, the DNA must be amplified with the universal primers (5'
 
 
 
+![Meta-workflow flow chart](doc/workflow.excalidraw.png)
+
+
+
 ## Core steps
 
 1. [nf-core fetchngs pipeline](https://nf-co.re/fetchngs/1.13.0/docs/usage)  

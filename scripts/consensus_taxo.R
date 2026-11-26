@@ -10,8 +10,8 @@
 #
 # Outputs:
 # Its outputs are given for each study, regrouping its eventual groups, in output/<STUDY>.
-# If the consensus taxonomy is exported, the agregated_consensus_taxo.tsv will be as well. 
-# It is the agregation of all the consensus taxonomies of all the studies.  
+# If the consensus taxonomy is exported, the aggregated_consensus_taxo.tsv will be as well. 
+# It is the aggregation of all the consensus taxonomies of all the studies.  
 #
 # Consensus
 # consensus_taxo.tsv:
@@ -33,7 +33,6 @@
 ############################################################################################
 ############################################################################################
 
-
 #Generate the tables only if relevant export option
 
 # Export option ----
@@ -53,8 +52,8 @@ source("scripts/functions_taxo.R")
 ## Read files ----
 studies_list <- readLines("tmp/studies_list.txt")
   
-taxo_files_pr2 <- list.files(path="output/ampliseq", pattern="ASV_tax.pr2", recursive=TRUE, full.names=TRUE)
-taxo_files_silva <- list.files(path="output/ampliseq", pattern="ASV_tax.silva", recursive=TRUE, full.names=TRUE)
+taxo_files_pr2 <- list.files(path="output/ampliseq", pattern="^ASV_tax.pr2", recursive=TRUE, full.names=TRUE)
+taxo_files_silva <- list.files(path="output/ampliseq", pattern="^ASV_tax.silva", recursive=TRUE, full.names=TRUE)
   
 studies_names <- str_remove_all(taxo_files_pr2, "^output/ampliseq/|/dada2.+") |> 
   str_replace("/Group_", "_G")
@@ -83,50 +82,83 @@ pr2_silva_consensus <-  map2(.x= pr2_taxonomic_tables,
                         set_names(studies_names)
   
 # Add the consensus taxonomy on the joined taxonomic tables
-pr2_silva_consensus2 <- map(pr2_silva_consensus, .f=make_consensus_taxo)
+pr2_silva_consensus <- map(pr2_silva_consensus, .f=make_consensus_taxo)
 
-# Agregate the groups of the studies to have one file per study
+#############################################
+# Make the table aggregated with all the studies before merging the groups together to keep the info
+if (export=="consensus" | export=="both"){
+# Transform the list of tables in one big table (with repetition)
+binded_tables <- bind_rows(pr2_silva_consensus, .id="Studies") |> 
+  select(ASV_ID, Studies, consensus_dada2_taxonomy, consensus_dada2_confidence, consensus_db) |>
+  group_by(ASV_ID) |> 
+  mutate(Studies = str_c(Studies, collapse="-")) |> 
+  ungroup()
+}
+#############################################
+
+# Aggregate the groups of the studies to have one file per study
 # Extract the studies names with their group multiplicity and row-bind the groups
-prefixes <- sub("_G\\d+$", "", names(pr2_silva_consensus))
+prefixes <- unique(sub("_G\\d+$", "", names(pr2_silva_consensus)))
 pr2_silva_consensus <- split(pr2_silva_consensus, prefixes) |> 
   map(bind_rows)
   
 
 
-#Export tables to output/regrouped/taxonomy
+#Export tables to output/final_files/per_study
 
-if (export=="consensus" | export=="both"){
+if (export=="both"){
+  # Export the consensus taxonomy and ...
   walk2(.x=pr2_silva_consensus,
-        .y=studies_names,
+        .y=prefixes,
         .f= ~ write_tsv(.x,
-                        file=str_c("output/", .y, "/",
+                        file=str_c("output/final_files/per_study/", .y, "/",
                                    "consensus_taxo.tsv"), append=FALSE)
         )
-} else if (export=="conflicts" | export=="both"){
   
-  ## Get conflict info on the domain level
-  domain_conflicts_per_projects <- map(pr2_silva_consensus, domain_conflict)
+  ## export the domain conflicts.
+  domain_conflicts_per_study <- map(pr2_silva_consensus, domain_conflict)
   
-  walk2(.x=domain_conflicts_per_projects,
-        .y=studies_names,
+  walk2(.x=domain_conflicts_per_study,
+        .y=prefixes,
         .f= ~ write_tsv(.x,
-                        file=str_c("output/", .y, "/",
+                        file=str_c("output/final_files/per_study/", .y, "/",
                                    "domain_conflicts.tsv"), append=FALSE)
-        )
-} 
+  )
+  
+} else if (export=="consensus"){
+  
+  # Export only the consensus taxonomy
+  walk2(.x=pr2_silva_consensus,
+        .y=prefixes,
+        .f= ~ write_tsv(.x,
+                        file=str_c("output/final_files/per_study/", .y, "/",
+                                   "consensus_taxo.tsv"), append=FALSE)
+  )
+} else if (export=="conflicts"){
+  
+  # Export only the domain conflicts
+  domain_conflicts_per_study <- map(pr2_silva_consensus, domain_conflict)
+  
+  walk2(.x=domain_conflicts_per_study,
+        .y=prefixes,
+        .f= ~ write_tsv(.x,
+                        file=str_c("output/final_files/per_study/", .y, "/",
+                                   "domain_conflicts.tsv"), append=FALSE)
+  )
+}
 
 
 
-##### Agregate taxonomy - one table for all the studies ----
+##### Aggregate taxonomy - one table for all the studies ----
 ############################################################################################
-# The following code part generates and exports one agregated consensus taxonomy table.
+# The following code part generates and exports one aggregated consensus taxonomy table.
 # It only runs if "consensus" or "both" were chosen as export option for main.sh
 #
 # Input:
 # pr2_silva_consensus list of tables from consensus_taxo.R script
 #
 # Output:
-# One agregated consensus taxonomic table
+# One aggregated consensus taxonomic table
 #
 #Columns of the final table:
 #ASV_ID: all the ASV IDs, written only once
@@ -141,14 +173,8 @@ if (export=="consensus" | export=="both"){
 # We expect small differences bc they are due to non exact reproducibility in dada2
 
 if (export=="consensus" | export=="both"){
-  
-  # Transform the list of tables in one big table (with repetition)
-  binded_tables <- bind_rows(pr2_silva_consensus, .id="Studies") |> 
-    select(ASV_ID, Studies, consensus_dada2_taxonomy, consensus_dada2_confidence, consensus_db) |>
-    group_by(ASV_ID) |> 
-    mutate(Studies = str_c(Studies, collapse="-")) |> 
-    ungroup()
-  
+
+  # binded_tables made before regrouping  
   
   # Vector of all duplicated ASVs
   dup <- unique(binded_tables$ASV_ID[duplicated(binded_tables$ASV_ID)])
@@ -188,15 +214,15 @@ if (export=="consensus" | export=="both"){
   not_duplicated <- filter(binded_tables, duplicate=="FALSE")
   
   # Taxonomy table with the consensus taxonomy for all the projects
-  agregated_consensus_taxonomy <- rbind(not_duplicated, confidence_conflicts_solved,
+  aggregated_consensus_taxonomy <- rbind(not_duplicated, confidence_conflicts_solved,
                                    taxo_conflicts_solved, duplicate_without_conflict) |> 
     select(ASV_ID, Studies, consensus_dada2_taxonomy, 
            consensus_dada2_confidence, consensus_db)
   
   
-  ## Export agregated consensus taxonomy table ----
-  write_tsv(agregated_consensus_taxonomy,
-            file="output/agregated/agregated_consensus_taxo.tsv",
+  ## Export aggregated consensus taxonomy table ----
+  write_tsv(aggregated_consensus_taxonomy,
+            file="output/final_files/aggregated/aggregated_consensus_taxo.tsv",
             append=FALSE)
 
 }
