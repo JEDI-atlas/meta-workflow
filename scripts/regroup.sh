@@ -9,7 +9,7 @@
 # sequences.fasta: ASVs description
 # input_samples.txt: sample ID input
 # params_ampliseq_G<i>.yaml: ampliseq parameters - as many files as groups because they can have different parameters
-# traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
+# traceability.tsv: study ID, corresponding bioproject(s), link(s) to manuscript(s), notes (if discarded and why)
 #
 # metaworkflow_params.yaml: metadata meta-workflow (versions) 
 #
@@ -59,7 +59,7 @@ while IFS= read -r study; do
     OUT="./output/final_files/per_study/${study}"
 
     # Traceability
-    echo -e "Data_accession\tStudy_ID\tManuscript" > ${OUT}/traceability.tsv
+    echo -e "Study_ID\tData_accession\tManuscript\tNotes" > ${OUT}/traceability.tsv
     grep ${study} ./input/studies_traceability.tsv >> ${OUT}/traceability.tsv
 
     nb_group=$(ls input/${study}/samplesheet* | wc -l)

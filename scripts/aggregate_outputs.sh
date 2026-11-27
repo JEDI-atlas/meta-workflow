@@ -10,7 +10,7 @@
 # input_samples.txt: sample ID input
 # overall_summary.tsv: sample quality metric and "how many reads per sample passed each pipeline step in which a loss can occur" (cutadapt and dada2 steps)
 # metaworkflow_params.yaml: metadata meta-workflow (versions)
-# traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
+# traceability.tsv: study ID, corresponding bioproject(s), link(s) to manuscript(s), notes (if discarded and why). Copy from (metadata) input.
 # 
 # Taxonomy table
 # taxonomy.tsv: consensus for duplicated ASVs and between pr2 and silva, see README for more information
