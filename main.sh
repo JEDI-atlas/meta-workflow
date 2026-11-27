@@ -14,9 +14,7 @@ Help() {
           even if their outputs have been deleted from the working directory but not their input.
           Can be used when you have already successfully ran the workflow/ampliseq on some studies and deleted their outputs
           than added some studies you also want to run (without running the other ones again).\n"
-  echo -e "-e       Chose whether to export pr2, silva and consensus taxonomies (pr2_silva_consensus.tsv) and domain conflicts
-        (domain_conflicts) tables (one per group and studies??). Either joined, conflicts or both. Default is none.\n"
-  echo -e "-r "yes" if you want to run the regroup.sh and aggregate_outputs.sh scripts. To use after ampliseq ran successfully.\n"
+  echo -e "-c        Use -c "yes" if you want to export the tables of domain conflicts (domain_conflicts.tsv) for every study. Default is no.\n"
 }
 
 
@@ -24,7 +22,7 @@ Help() {
 # Usage function
 ############################################################
 usage() {
-  echo "Usage: $0 -a <"add_new_studies.txt"> -e <"consensus";"conflicts";"both"> -r <"yes"> [-h for help]"
+  echo "Usage: $0 -a <"add_new_studies.txt"> -c <"yes"> [-h for help]"
 }
 
 
@@ -34,10 +32,9 @@ usage() {
 
 #Default values
 add_studies="tmp/studies_list.txt"
-exported="none"
-regroup="no"
+conflicts="no"
 
-while getopts ":ha:e:r:" OPTION
+while getopts ":ha:c:" OPTION
 do
   case $OPTION in
   h)
@@ -48,11 +45,8 @@ do
   a) #Added studies list to run only these
     add_studies=$OPTARG
     ;;
-  e) #Export taxonomy and/or domain conflicts tables
-    exported=$OPTARG
-    ;;
-  r) #Output per study and aggregated ?
-    regroup=$OPTARG
+  c) #Export taxonomy and/or domain conflicts tables
+    conflicts=$OPTARG
     ;;
   \?)
     echo "Invalid option: -$OPTARG"
@@ -73,8 +67,7 @@ done
 [ ! -d "output" ] && mkdir output
 
 export add_studies="$add_studies"
-export exported="$exported"
-export regroup="$regroup"
+export conflicts="$conflicts"
 
 
 ########################################################
@@ -126,7 +119,7 @@ done < $add_studies
 #Run nf-core-fetchngs
 ########################################################
 
-sbatch scripts/run_fetchngs.sh ${add_studies}
+sbatch --wait scripts/run_fetchngs.sh ${add_studies}
 
 #Re-run fetchngs with option -resume for projects that had en error 
 FILE=tmp/resume_fetchngs.tsv
@@ -139,13 +132,13 @@ fi
 # Run nf-core ampliseq
 ########################################################
 
-JOBIDAMPLISEQ=$(sbatch --parsable scripts/run_ampliseq.sh ${add_studies})
+sbatch  --wait scripts/run_ampliseq.sh ${add_studies}
 
 #Re-run ampliseq with option -resume for projects that had en error 
 FILE=tmp/resume_ampliseq.tsv
 
 if [[ -f "$FILE" &&  $(wc -l < "$FILE") -gt 0 ]]; then
-  JOBIDresumeAMPLISEQ=$(sbatch --parsable scripts/resume_ampliseq.sh)
+  sbatch --wait scripts/resume_ampliseq.sh
 fi
 
 
@@ -153,17 +146,12 @@ fi
 # Regroup the (eventual) groups of the studies
 ########################################################
 
-if [[ $regroup == "yes" ]]; then
-  sbatch scripts/regroup.sh ${add_studies}
-  regrouped="done"
-fi
-
+sbatch --wait scripts/regroup.sh ${add_studies}
 
 
 ########################################################
 # Aggregate ampliseq outputs per studies
 ########################################################
 
-if [[ $regrouped == "done" ]]; then
-  sbatch scripts/aggregate_outputs.sh
-fi
+sbatch scripts/aggregate_outputs.sh
+

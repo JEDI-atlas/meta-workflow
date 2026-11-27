@@ -10,11 +10,11 @@
 #
 # Outputs:
 # Its outputs are given for each study, regrouping its eventual groups, in output/<STUDY>.
-# If the consensus taxonomy is exported, the aggregated_consensus_taxo.tsv will be as well. 
+# If the consensus taxonomy is exported, the aggregated consensus taxonomy (taxonomy.tsv) will be as well. 
 # It is the aggregation of all the consensus taxonomies of all the studies.  
 #
 # Consensus
-# consensus_taxo.tsv:
+# taxonomy.tsv:
 # dada2 assignated taxonomy: with pr2, silva and a consensus (either pr2 and silva depending on the ASV)
 # The consensus confidence refers to the most precise taxonomic level kept
 # rows: ASVs
@@ -86,14 +86,14 @@ pr2_silva_consensus <- map(pr2_silva_consensus, .f=make_consensus_taxo)
 
 #############################################
 # Make the table aggregated with all the studies before merging the groups together to keep the info
-if (export=="consensus" | export=="both"){
+
 # Transform the list of tables in one big table (with repetition)
 binded_tables <- bind_rows(pr2_silva_consensus, .id="Studies") |> 
   select(ASV_ID, Studies, consensus_dada2_taxonomy, consensus_dada2_confidence, consensus_db) |>
   group_by(ASV_ID) |> 
   mutate(Studies = str_c(Studies, collapse="-")) |> 
   ungroup()
-}
+
 #############################################
 
 # Aggregate the groups of the studies to have one file per study
@@ -104,39 +104,18 @@ pr2_silva_consensus <- split(pr2_silva_consensus, prefixes) |>
   
 
 
-#Export tables to output/final_files/per_study
+#Export the tables to output/final_files/per_study
 
-if (export=="both"){
-  # Export the consensus taxonomy and ...
-  walk2(.x=pr2_silva_consensus,
-        .y=prefixes,
-        .f= ~ write_tsv(.x,
-                        file=str_c("output/final_files/per_study/", .y, "/",
-                                   "consensus_taxo.tsv"), append=FALSE)
-        )
-  
-  ## export the domain conflicts.
-  domain_conflicts_per_study <- map(pr2_silva_consensus, domain_conflict)
-  
-  walk2(.x=domain_conflicts_per_study,
-        .y=prefixes,
-        .f= ~ write_tsv(.x,
-                        file=str_c("output/final_files/per_study/", .y, "/",
-                                   "domain_conflicts.tsv"), append=FALSE)
-  )
-  
-} else if (export=="consensus"){
-  
-  # Export only the consensus taxonomy
-  walk2(.x=pr2_silva_consensus,
-        .y=prefixes,
-        .f= ~ write_tsv(.x,
-                        file=str_c("output/final_files/per_study/", .y, "/",
-                                   "consensus_taxo.tsv"), append=FALSE)
-  )
-} else if (export=="conflicts"){
-  
-  # Export only the domain conflicts
+# Export the consensus taxonomy per study
+walk2(.x=pr2_silva_consensus,
+      .y=prefixes,
+      .f= ~ write_tsv(.x,
+                      file=str_c("output/final_files/per_study/", .y, "/",
+                                 "taxonomy.tsv"), append=FALSE)
+      )
+
+if (export=="yes"){  
+  ## Export the domain conflicts
   domain_conflicts_per_study <- map(pr2_silva_consensus, domain_conflict)
   
   walk2(.x=domain_conflicts_per_study,
@@ -172,57 +151,53 @@ if (export=="both"){
 # When an ASV has different taxonomies in different studies, we keep the shortest one.
 # We expect small differences bc they are due to non exact reproducibility in dada2
 
-if (export=="consensus" | export=="both"){
-
-  # binded_tables made before regrouping  
+# binded_tables made before regrouping  
   
-  # Vector of all duplicated ASVs
-  dup <- unique(binded_tables$ASV_ID[duplicated(binded_tables$ASV_ID)])
+# Vector of all duplicated ASVs
+dup <- unique(binded_tables$ASV_ID[duplicated(binded_tables$ASV_ID)])
   
-  # Add columns of booleans
-  #  duplicate: indicates whether the ASV is present in more than one project (TRUE) or unique to a project (FALSE)
-  #  same_consensus_taxo: FALSE if difference between the pr2 and silva consensus taxo of the same ASV
-  #  same_consensus_confidence: FALSE if difference between pr2 and silva consensus confidence of the same ASV
+# Add columns of booleans
+#  duplicate: indicates whether the ASV is present in more than one project (TRUE) or unique to a project (FALSE)
+#  same_consensus_taxo: FALSE if difference between the pr2 and silva consensus taxo of the same ASV
+#  same_consensus_confidence: FALSE if difference between pr2 and silva consensus confidence of the same ASV
   
-  binded_tables <- binded_tables |>
-    mutate(duplicate = ifelse(ASV_ID %in% dup, "TRUE", "FALSE" )) |>
-    mutate(same_consensus_taxo = n_distinct(
-      ASV_ID, consensus_dada2_taxonomy) == 1, .by = "ASV_ID") |> 
-    mutate(same_consensus_confidence = n_distinct(
-      ASV_ID, consensus_dada2_confidence) == 1, .by = "ASV_ID") |> 
-    distinct()
+binded_tables <- binded_tables |>
+  mutate(duplicate = ifelse(ASV_ID %in% dup, "TRUE", "FALSE" )) |>
+  mutate(same_consensus_taxo = n_distinct(
+    ASV_ID, consensus_dada2_taxonomy) == 1, .by = "ASV_ID") |> 
+  mutate(same_consensus_confidence = n_distinct(
+    ASV_ID, consensus_dada2_confidence) == 1, .by = "ASV_ID") |> 
+  distinct()
   
   
-  # Different consensus taxonomies, keep the shortest one ---
-  taxo_conflicts_solved <- binded_tables |> 
-    filter(same_consensus_taxo=="FALSE") |> 
-    mutate(nb_NA = str_count(consensus_dada2_taxonomy, "NA")) |> 
-    group_by(ASV_ID) |> 
-    slice_max(nb_NA, with_ties = FALSE) |> 
-    select(! nb_NA)
+# Different consensus taxonomies, keep the shortest one ---
+taxo_conflicts_solved <- binded_tables |> 
+  filter(same_consensus_taxo=="FALSE") |> 
+  mutate(nb_NA = str_count(consensus_dada2_taxonomy, "NA")) |> 
+  group_by(ASV_ID) |> 
+  slice_max(nb_NA, with_ties = FALSE) |> 
+  select(! nb_NA)
   
-  # Same consensus taxo but different confidences, keep the smallest confidence ----
-  confidence_conflicts_solved <- binded_tables |> 
-    filter(same_consensus_taxo=="TRUE" & same_consensus_confidence=="FALSE") |> 
-    group_by(ASV_ID) |> 
-    slice_min(consensus_dada2_confidence)
-  
-  
-  duplicate_without_conflict <- binded_tables |> 
-    filter(duplicate=="TRUE" & same_consensus_taxo=="TRUE" & same_consensus_confidence=="TRUE")
-  
-  not_duplicated <- filter(binded_tables, duplicate=="FALSE")
-  
-  # Taxonomy table with the consensus taxonomy for all the projects
-  aggregated_consensus_taxonomy <- rbind(not_duplicated, confidence_conflicts_solved,
-                                   taxo_conflicts_solved, duplicate_without_conflict) |> 
-    select(ASV_ID, Studies, consensus_dada2_taxonomy, 
-           consensus_dada2_confidence, consensus_db)
+# Same consensus taxo but different confidences, keep the smallest confidence ----
+confidence_conflicts_solved <- binded_tables |> 
+  filter(same_consensus_taxo=="TRUE" & same_consensus_confidence=="FALSE") |> 
+  group_by(ASV_ID) |> 
+  slice_min(consensus_dada2_confidence)
   
   
-  ## Export aggregated consensus taxonomy table ----
-  write_tsv(aggregated_consensus_taxonomy,
-            file="output/final_files/aggregated/aggregated_consensus_taxo.tsv",
-            append=FALSE)
-
-}
+duplicate_without_conflict <- binded_tables |> 
+  filter(duplicate=="TRUE" & same_consensus_taxo=="TRUE" & same_consensus_confidence=="TRUE")
+  
+not_duplicated <- filter(binded_tables, duplicate=="FALSE")
+  
+# Taxonomy table with the consensus taxonomy for all the projects
+aggregated_consensus_taxonomy <- rbind(not_duplicated, confidence_conflicts_solved,
+                                  taxo_conflicts_solved, duplicate_without_conflict) |> 
+  select(ASV_ID, Studies, consensus_dada2_taxonomy, 
+          consensus_dada2_confidence, consensus_db)
+  
+  
+## Export aggregated consensus taxonomy table ----
+write_tsv(aggregated_consensus_taxonomy,
+          file="output/final_files/aggregated/taxonomy.tsv",
+          append=FALSE)

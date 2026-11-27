@@ -6,7 +6,7 @@ For this first version, the DNA must be amplified with the universal primers (5'
 
 
 
-![Meta-workflow flow chart](doc/workflow.excalidraw.png)
+![Meta-workflow flow chart](doc/meta-workflow.excalidraw.png)
 
 
 
@@ -26,10 +26,12 @@ For this first version, the DNA must be amplified with the universal primers (5'
 
 ## Usage
 
-sbatch main.sh -a <add_new_studies.txt> -e <consensus;conflicts;both> [-h for help]  
+```
+sbatch main.sh -a <"add_new_studies.txt"> -e <"consensus";"conflicts";"both"> -r <"yes"> [-h for help]  
+```
 
 **Examples:**  
-sbatch main.sh -a "tmp/add_new_studies.txt" -e both  
+sbatch main.sh -a "add_new_studies.txt" -e both  
 sbatch main.sh -e both  
 
 ## Options

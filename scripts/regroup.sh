@@ -5,19 +5,19 @@
 #
 # For all the studies, the following tables  are placed in output/<STUDY>:
 #
-# ampliseq.counts.tsv: ASVs counts per sample
-# ASV_seqs.fasta: ASVs description
+# counts.tsv: ASVs counts per sample
+# sequences.fasta: ASVs description
 # input_samples.txt: sample ID input
 # params_ampliseq_G<i>.yaml: ampliseq parameters - as many files as groups because they can have different parameters
 # traceability.tsv: bioproject(s), study ID, link(s) to manuscript(s)
 #
-# metaworkflow_params.yaml: metadata metaworkflow: version (ID commit github), param metaworkflow
+# metaworkflow_params.yaml: metadata meta-workflow (versions) 
 #
 # overall_summary.tsv: sample quality metric and
 #   "how many reads per sample passed each pipeline step in which a loss can occur" (cutadapt and dada2 steps)
 #
 # Taxonomy tables, done with consensus_taxo.R:
-# consensus_taxo.tsv
+# taxonomy.tsv
 # domain_conflicts.tsv
 #
 #
@@ -46,10 +46,7 @@ if [ ! -f "output/metaworkflow_params.yaml" ]; then
     echo -e "\n#Versions\nmetaworkflow_version: ${VERSION}
     git_commit_hash: ${COMMIT_HASH}
     fetchngs_version: ${fetchngs_version}
-    ampliseq_version: ${ampliseq_version}\n
-    #Options
-    #Export option:\nexport: ${exported}
-    #File listing the projects to compute:\nadd_projects: \"${add_studies}\"" \
+    ampliseq_version: ${ampliseq_version}\n" \
         >> output/metaworkflow_params.yaml
 
 fi
@@ -71,11 +68,11 @@ while IFS= read -r study; do
 
         # ASVs sequences
         find ./output/ampliseq/${study}/*/dada2 -name "ASV_seqs.fasta" -exec awk '/^>/ {if (seen[$0]++) {f=0} else {f=1}} f' {} + \
-            > ${OUT}/ASV_seqs.fasta
+            > ${OUT}/sequences.fasta
 
         # ASV counts per sample - rows are ASVs (long format table)
         gzip -dc ./output/ampliseq/${study}/*/summary_tables/ampliseq.counts.tsv.gz | awk 'NR==1 || $0 != "asv_id\tsample\tcount"' \
-            > ${OUT}/ampliseq.counts.tsv
+            > ${OUT}/counts.tsv
 
         # Input sample IDs
         find ./output/ampliseq/${study}/*/input -name "samplesheet.csv" -exec awk -F',' '
@@ -113,10 +110,10 @@ while IFS= read -r study; do
     elif [[ $nb_group -eq 1 ]]; then
 
         # ASVs sequences
-        mv ./output/ampliseq/${study}/Group_1/dada2/ASV_seqs.fasta ${OUT}/ASV_seqs.fasta
+        mv ./output/ampliseq/${study}/Group_1/dada2/ASV_seqs.fasta ${OUT}/sequences.fasta
 
         # ASV counts per sample
-        mv ./output/ampliseq/${study}/Group_1/summary_tables/ampliseq.counts.tsv.gz ${OUT}/ampliseq.counts.tsv
+        mv ./output/ampliseq/${study}/Group_1/summary_tables/ampliseq.counts.tsv.gz ${OUT}/counts.tsv
         
         # Input sample IDs
         awk -F',' 'NR==1 || FNR!=1 {gsub(/^"|"$/, "", $1); print $1}
@@ -190,26 +187,27 @@ done < $1
 
 # Consensus taxonomy per study
 
-if [ $exported == "none" ]; then
-  echo 'No generation and export of R formatted taxonomy tables. The default option for -e is "none".'
+if [ $conflicts == "no" ]; then
+  echo -e 'No generation and export of the domain conflicts tables.\nThe default option for -c is "no". Run with -c "yes" if you want the domain conflicts tables.'
 
-elif [[ $exported == "both" || $exported == "consensus" || $exported == "conflicts" ]]; then
+elif [[ $conflicts == "yes" ]]; then
 
-    [ ! -d "output/final_files/aggregated" ] && mkdir output/final_files/aggregated
-
-    echo "R formatted taxonomy tables exported for all the studies."
-
-    module load r/4.5.2
-
-    sbatch \
-        --mem 20GB \
-        --wrap="Rscript scripts/consensus_taxo.R $exported"
+    echo "The domain conflicts tables will be exported for all the studies."
 
 else
 
-  echo "${exported} is an invalid argument for option -e. Use one of "consensus", "conflicts" or "both". Default is "none"."
+  echo "${conflicts} is an invalid argument for option -c. Use -c "yes" or -c "no". Default is "no"."
 
 fi
+
+
+[ ! -d "output/final_files/aggregated" ] && mkdir output/final_files/aggregated
+
+module load r/4.5.2
+
+sbatch \
+    --mem 20GB \
+    --wrap="Rscript scripts/consensus_taxo.R $conflicts"
 
 
 # Clean
