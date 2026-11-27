@@ -1,94 +1,113 @@
-# jedi_meta-workflow
+# Meta-workflow
 
-This workflow helps analysing a large volume of metabarcoding data from different published studies.  
+# Introduction
 
-For this first version, the DNA must be amplified with the universal primers (5'-GTGYCAGCMGCCGCGGTAA-3' and 926R (5'-CCGYCAATTYMTTTRAGTTT-3')  [(Parada, Needham, & Fuhrman, 2016)](https://pubmed.ncbi.nlm.nih.gov/26271760/), targeting the V4-V5 region of the small subunit rRNA gene and which allows the amplification of 16S rRNA (_Bacteria, Archaea_) as well as 18S rRNA (_Eukaryota_).
+This workflow helps analysing a large volume of metabarcoding data from different studies. The goal is to put together metabarcoding data from various environments that share a similer primer. The unit of analysis is the study, where a study corresponds to one or more publicly available datasets linked to scientific publications. In parallel of the workflow, we manually check the studies to see if they meet certain criteria. This workflow is linked to the [metadata workflow](https://github.com/li0ni0/jedi_metadata) developped to gather metadata on the studies. The metadata downloaded from public databases and can be manually curated.
+
+Type of data considered:  
+
+- For this first version, the DNA must be amplified with the universal primers (5'-GTGYCAGCMGCCGCGGTAA-3' and 926R (5'-CCGYCAATTYMTTTRAGTTT-3')  [(Parada, Needham, & Fuhrman, 2016)](https://pubmed.ncbi.nlm.nih.gov/26271760/), targeting the V4-V5 region of the small subunit rRNA gene and which allows the amplification of 16S rRNA (_Bacteria, Archaea_) as well as 18S rRNA (_Eukaryota_).  
+
+- paired end sequencing
 
 
 
-![Meta-workflow flow chart](doc/meta-workflow.excalidraw.png)
+![Meta-workflow flowchart](doc/meta-workflow.excalidraw.png)
+_Schematic flowchart_
 
 
-
-## Core steps
+## Overview of the steps
 
 1. [nf-core fetchngs pipeline](https://nf-co.re/fetchngs/1.13.0/docs/usage)  
-    - downloads fastq from public databases (ENA, ...)  
-    - makes appropriate input for ampliseq  
+    - Downloads fastq from public databases ([ENA](https://www.ebi.ac.uk/ena/browser/home))  
+    - Makes appropriate inputs for ampliseq  
 2. [nf-core ampliseq pipeline](https://nf-co.re/ampliseq/3.0.0/)  
     - Sequencing quality control (FastQC)
-    - cutadapt (primer removal)  
-    - DADA2 (Divisive Amplicon Denoising Algorithm 2):
+    - Cutadapt (primer removal)  
+    - [DADA2](https://benjjneb.github.io/dada2/index.html) (Divisive Amplicon Denoising Algorithm 2):
         - Amplicon Sequence Variants (ASVs) inferring  
-        - Taxonomical classification (reference databases: pr2 and silva)  
-3. Produces a formatted, reproducible archive for each study and one for all the studies agregated together  
+        - Taxonomical classification (reference databases: [PR2](https://pr2-database.org/) and [SILVA](https://www.arb-silva.de/))  
+3. Consensus taxonomy between PR2 and SILVA  
+4. Formatted, reproducible archive for each study and one for all the studies aggregated together.  
+
+
+In the same study, the runs can have differences that constrains us to analyse them separatly in ampliseq. Different **groups** are made inside a study for this purpose.   
+
+When different sequencing technologies are used in a study, one group is made for each of them. Indeed, some produces binned quality scores. We want to indicate the binned quality scores in ampliseq parameters because dada2 needs them to calculate its error model.
+(If other groups are needed for different reasons, they must be made manually.)  
+The workflow creates one parameter file per group but they need to be modified manually.  
+
+The outputs of the groups of a same study are then put together to have one output per study.  
+Thus, the groups run separately but must be comparable.  
 
 
 ## Usage
 
 ```
-sbatch main.sh -a <"add_new_studies.txt"> -e <"consensus";"conflicts";"both"> -r <"yes"> [-h for help]  
+sbatch main.sh
 ```
 
-**Examples:**  
-sbatch main.sh -a "add_new_studies.txt" -e both  
-sbatch main.sh -e both  
+```
+sbatch main.sh -a "add_new_studies.txt" -c "yes" 
+```
 
 ## Options
 
 **-h**  to print the help  
 
-**-a**  (Optional) Path to a file listing the studies, its bio-projects and manuscripts as explained in the section input for studies_traceability.tsv.    
-    If there are some other similar input file, they will be ignored, even if their outputs have been deleted from the working directory.  
-    Can be used when you have already successfully ran ampliseq on some projects and deleted their outputs than added some samplesheet for projects you also  want to run (without running the other ones again).  
+**-a**  (Optional) Path to a file listing the studies to analyse, one per line.
+        By default, the pipelines (fetchngs and ampliseq) will run for every study that has a correct input (see section **Inputs**) and no output folder yet.
+        Can be used when ampliseq successfully ran on some studies and you deleted or moved their outputs than added other studies you want to analyse (without running again the ones for which you deleted or moved the output).  
     
-**-e**   Can take the values consensus, conflicts or both. Default is none.  
-          "consensus": exports the tables with pr2, silva and consensus taxonomies (consensus_taxo.tsv)  
-          "conflicts": exports the tables listing domain conflicts (domain_conflicts.tsv)  
-          "both": to export taxonomy and domain conflicts tables  
-          If consensus or both, agregated_consensus_taxonomy.tsv is also created and exported. See Outputs section   
+**-c**  Use -c "yes" if you want the tables of domain conflicts (domain_conflicts.tsv) for every study.
+        Default is "no" and will not create these tables.  
+ 
 
 
 ## Inputs  
 
-The input of this workflow corresponds to the output of the linked [metadata workflow](https://github.com/li0ni0/jedi_metadata).  
 
-The inputs must be organized in different studies, which can correspond to one or more publicly available bio-projects, and are given a unique identifier.  
+#### General inputs  
 
+To place in the folder **input**:  
 
-To place in the folder input:  
 - **params_fetchngs.yaml**:
   Parameters file for fetchngs
   
 - **studies_traceability.tsv**:  
-  Columns: data accession (bioprojects IDs), study ID and link to the paper (in, that order)
+  Columns:
+  - Study_ID
+  - Data_accession: bioproject(s) of the study
+  - Manuscript: link(s) to the published paper(s) of the study
+  - Notes: if the study was discarded and why. Other relevant information.
   
 - **param.config**:
   Optionnal, personnalized configuration file for nextflow  
 
-For each study, in **input/<study_ID>**:  
-- **ena_run_metadata.tsv** 
+#### Inputs per study 
+
+They must correspond to the outputs of the linked [metadata workflow](https://github.com/JEDI-atlas/jedi_metadata) and be placed in **input/<study_ID>**:   
+
+- **ena_run_metadata.tsv**
 - **ena_sample_metadata.tsv** (optional)
-- **params_ampliseq_Gi.yaml**:
-  As many files as there are groups, i being the group number
-- **samplesheet_Gi.tsv**:
-  Also one file per group, lists the run accessions of the group
+- **params_ampliseq_Gi.yaml**:  
+  As many files as there are groups, i being the group number.
 
 
 ## Outputs  
 
-The following tables are saved in the folder output/\<study_ID\>, with information for every run of the study (no more groups) as well as in the folder output/agregated, where they regroup all the runs of all the studies together.  
+Outputs per study, in **output/final_files/per_study\<study_ID\>**:  
 
 - **traceability.tsv**:  
-    copy of input/studies_traceability.tsv
+    Copy of input/studies_traceability.tsv
 
 - **input_samples.txt**:  
-    sample IDs given as input for the study  
+    Experiment accessions given as inputs for ampliseq  
 
-- **ASV_seqs.fasta**:   
+- **sequences.fasta**:   
     Contains the ASVs IDs and sequences of all the projects   
 
-- [**ampliseq_counts.tsv**](https://nf-co.re/ampliseq/3.1.0/docs/output/#summary-tables):   
+- [**counts.tsv**](https://nf-co.re/ampliseq/3.1.0/docs/output/#summary-tables):   
     "ASV counts in long format (asv_id, sample, count), zero-count rows dropped. Sourced from DADA2’s raw output, before clustering and any post-processing filters below"   
 
 - [**overall_summary.tsv**](https://nf-co.re/ampliseq/3.1.0/docs/output/#pipeline-information):  
@@ -103,7 +122,7 @@ The following tables are saved in the folder output/\<study_ID\>, with informati
 - **metaworkflow_params.yaml**:
     Metadata of the meta-workflow; version (tag + ID commit github), options used  
 
-- **consensus_taxo.R**:
+- **taxonomy.R**:
     - \<pr2/silva>_dada2_taxonomy: taxonomy assigned by dada2 assignTaxonomy() based on the database PR2 (resp. SILVA)
     - <pr2/silva>_dada2_confidence: confidence of the last taxonomic rank assigned by dada2, using PR2 (resp. SILVA)  
     - <pr2/silva>_dada2_allConfidences: the confidences of all the assigned taxonomic ranks, using PR2 (resp. SILVA)  
@@ -119,7 +138,7 @@ The following tables are saved in the folder output/\<study_ID\>, with informati
 
 
 - **domain_conflicts.tsv**:  
-Lists the ASVs for which PR2 and SILVA led to different domain assignation with dada2.
+  Lists the ASVs for which PR2 and SILVA led to different domain assignation with dada2.
     - ASV_ID                         
     - pr2_dada2_taxonomy_domain 	
     - silva_dada2_taxonomy_domain 	
@@ -127,20 +146,43 @@ Lists the ASVs for which PR2 and SILVA led to different domain assignation with 
     - silva_dada2_taxonomy
 
 
-The same tables are in output/agregated, except consensus_taxo.tsv and domain_conflicts.tsv.  
-Instead:  
+Outputs for all the studies, in **output/final_files/aggregated**:
+The same tables as listed above, except:  
 
-- **agregated_consensus_taxo.tsv**:  
-  Consensus taxonomy table (for a study).  
+- no domain_conflicts.tsv
+
+- **taxonomy.tsv**:  
   - ASV_ID
-  - Projects: column listing all the projects where the ASV is found
+  - Studies: column listing all the studies groups where the ASV is found
   - consensus_taxo: consensus of all the consensus taxonomy for the ASV (shortest)
   - consensus_conf: consensus of all the consensus confidences for the ASV (smallest)
   - consensus_db: corresponding to the consensus taxonomy kept (silva or pr2)
 
-    **Rules for the agregated consensus taxonomy**:  
+    **Rules for the aggregated consensus taxonomy**:  
     When an ASV is present in more than one bio-project, there can be (small) differences in dada2 taxonomic assignation between projects due to "[an element of randomness in the naive Bayesian classifier method that comes from selecting the subsamples of the sequence over which boot strapping assignment is performed"](https://github.com/benjjneb/dada2/issues/1115) and which isn't fixed by setting a seed. Thus, when the taxonomies differ, the shortest one (i.e. with the fewest number of taxonomic level assigned) is kept as consensus over the projects. When the taxonomies are identical but the confidences differ, the smallest confidence value is kept.  
-    
+
+
+
+# How to run ?
+
+How to run the pipeline from scratch ?
+
+In the ABIMS cluster:  
+
+- Clone the github repository
+- Download the metadata you want to analyse from the [metadata repository](https://github.com/JEDI-atlas/jedi_metadata) (or run it first on new studies). These metadata must be placed in a folder "input", so that the structure is as described in the **Inputs** section.  
+- Run the command line __sbatch main.sh__
+
+
+
+# Dependencies
+
+This workflow uses:  
+
+- Nextflow: v26.04.4
+- nf-core fetchngs: v1.13.0
+- nf-core ampliseq: v3.0.0
+- R: v4.5.2
 
 
 ## References
